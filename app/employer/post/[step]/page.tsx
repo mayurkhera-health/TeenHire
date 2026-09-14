@@ -6,9 +6,15 @@ import { BackButton } from '@/components/Shell';
 import { Chip, ProgressRail, Tile } from '@/components/ui';
 import { OpportunityCard } from '@/components/OpportunityCard';
 import { usePostDraft, type PostDraft } from '@/components/PostDraft';
-import { EMPLOYER_TIMING, EXPERIENCE_EMPLOYER_LABEL, HOURS_LABEL, TIMING_LABEL } from '@/lib/copy';
-import { estimateReach } from '@/lib/data';
+import {
+  EMPLOYER_TIMING,
+  EXPERIENCE_EMPLOYER_LABEL,
+  HOURS_LABEL,
+  TIMING_LABEL,
+  listPhrase,
+} from '@/lib/copy';
 import { DEFAULT_LOCATION } from '@/lib/geo';
+import { agesExcluded, reachFor, type Reach } from '@/lib/reach';
 import { useApp } from '@/lib/store';
 import type {
   Compensation,
@@ -262,8 +268,9 @@ function PayStep() {
   const compensation = buildCompensation(draft);
   const complete = compensation !== null;
 
-  const city = employerOrg ? DEFAULT_LOCATION.city : DEFAULT_LOCATION.city;
-  const reach = estimateReach(city, draft.minimumAge ?? 16);
+  const reach = draft.minimumAge
+    ? reachFor({ city: DEFAULT_LOCATION.city, minimumAge: draft.minimumAge })
+    : ({ known: false } as const);
 
   const previewOrganization = useMemo<Organization>(
     () => ({
@@ -365,10 +372,7 @@ function PayStep() {
               },
             }}
           />
-          <p className="t-meta">
-            About {reach} students nearby could see this. We review every posting by hand before it
-            goes live, usually the same day.
-          </p>
+          <ReachNote reach={reach} minimumAge={draft.minimumAge} />
         </section>
       ) : null}
 
@@ -383,6 +387,33 @@ function PayStep() {
         </div>
       </div>
     </>
+  );
+}
+
+/* Two branches, and only one of them shows a number. Until there are real
+   students to count, the employer is told what their own settings do — which
+   is true by construction and more actionable than an estimate anyway. */
+
+function ReachNote({ reach, minimumAge }: { reach: Reach; minimumAge: MinimumAge | null }) {
+  const review = 'We check every posting by hand before it goes live, usually the same day.';
+
+  if (reach.known) {
+    return (
+      <p className="t-meta">
+        About {reach.count} students nearby could see this. {review}
+      </p>
+    );
+  }
+
+  const excluded = minimumAge ? agesExcluded(minimumAge) : [];
+
+  return (
+    <p className="t-meta">
+      {excluded.length === 0
+        ? 'Open to every age we serve, which is the widest this can reach.'
+        : `Students aged ${listPhrase(excluded.map(String))} will not see this.`}{' '}
+      {review}
+    </p>
   );
 }
 

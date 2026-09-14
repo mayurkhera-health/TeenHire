@@ -672,25 +672,3 @@ export const INTERESTED_STUDENTS: Record<string, InterestedStudent[]> = {
   ],
 };
 
-/* Rough catchment figures used to tell an employer how many students a
-   posting would actually reach. Always shown hedged with "about" — it is an
-   estimate from the student base, not a promise of applicants. */
-export const STUDENTS_NEARBY: Record<string, number> = {
-  'Santa Clara': 420,
-  'San Jose': 980,
-  Campbell: 210,
-  Sunnyvale: 390,
-  Cupertino: 260,
-  'Mountain View': 240,
-  Milpitas: 280,
-  Saratoga: 140,
-  'Los Gatos': 160,
-};
-
-/* Each extra year of minimum age cuts the eligible pool. Roughly a third of
-   the high-school population sits in each band. */
-export function estimateReach(city: string, minimumAge: number): number {
-  const base = STUDENTS_NEARBY[city] ?? 300;
-  const share = { 15: 1, 16: 0.76, 17: 0.5, 18: 0.24 }[minimumAge] ?? 0.5;
-  return Math.round((base * share) / 10) * 10;
-}

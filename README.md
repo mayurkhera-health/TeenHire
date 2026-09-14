@@ -35,9 +35,9 @@ student's own device.
 **Organization**
 - Signup: organization kind plus four fields.
 - Console: what's open, who's interested.
-- Posting: five questions, with the student-facing card and a reach estimate
-  rendered live on the last step before anything is submitted. Postings queue
-  for review — nothing publishes itself.
+- Posting: five questions, with the student-facing card rendered live on the
+  last step before anything is submitted. Postings queue for review — nothing
+  publishes itself.
 - Interested students as cards, two decisions, and only the fields an
   organization needs: first name, age, rough distance, availability, interests.
 
@@ -128,6 +128,19 @@ Verified in a real browser at 320px, 390px and 900px:
 - **Organizations in the seed data are invented.** None of these postings are
   real, and none are attributed to a real company.
 
+## Reach, and why it shows no number
+
+`lib/reach.ts`. The posting flow's last step is where an employer decides
+whether to commit, which makes it the worst possible place to print an
+invented figure. There is no student base to count yet, so `reachFor` returns
+`{ known: false }` and the screen tells the employer what their own settings
+do instead — "Students aged 15 and 16 will not see this" — which is true by
+construction whatever the eventual population turns out to be.
+
+Both branches are already rendered. Wiring this to real counts before launch
+means returning `{ known: true, count }` from one function; the SQL it stands
+in for is written out in the file.
+
 ## Not built
 
 No backend. Matching, distance and eligibility run client-side over seeded
@@ -138,3 +151,7 @@ source rather than a change of screens.
 
 Also out of V1 by design: messaging, notifications delivery, the admin console,
 payments, and any student profile shaped like a résumé.
+
+Nothing in the UI shows a number the data cannot support. If you add one, make
+it survive the question an employer or a student would ask of it: where did
+that come from?

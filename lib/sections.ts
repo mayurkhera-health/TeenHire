@@ -70,7 +70,12 @@ export function buildSections({ ranked, availability, now = new Date() }: Sectio
     if (fresh.length < MIN_ITEMS) continue;
 
     const items = fresh.slice(0, MAX_ITEMS);
-    fresh.forEach((r) => shown.add(r.opportunity.id));
+    /* Only what is actually on screen counts as shown. Consuming a section's
+       whole candidate list would starve the sections below it — on a small
+       result set that drops the feed to two headings. An opportunity that
+       genuinely belongs to two sections may appear in both once one of them
+       is expanded, which is accurate rather than confusing. */
+    items.forEach((r) => shown.add(r.opportunity.id));
     sections.push({ ...section, items, allItems: fresh });
 
     if (sections.length === 5) break;
