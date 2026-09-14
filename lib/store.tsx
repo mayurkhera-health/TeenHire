@@ -9,6 +9,7 @@ import {
   useState,
   type ReactNode,
 } from 'react';
+import type { Account } from './auth';
 import { DEFAULT_LOCATION } from './geo';
 import { INTERESTED_STUDENTS, OPPORTUNITIES, ORGANIZATIONS } from './data';
 import type {
@@ -69,6 +70,10 @@ export interface EmployerOrg {
 }
 
 interface PersistedState {
+  /* Null until the student first expresses interest. Browsing, onboarding and
+     saving all work without one — the gate is at the moment something is sent
+     on their behalf, not at the front door. */
+  account: Account | null;
   profile: StudentProfile | null;
   draft: OnboardingDraft;
   saved: string[];
@@ -80,6 +85,7 @@ interface PersistedState {
 }
 
 const INITIAL: PersistedState = {
+  account: null,
   profile: null,
   draft: EMPTY_DRAFT,
   saved: [],
@@ -96,6 +102,8 @@ interface AppValue extends PersistedState {
   ready: boolean;
   organizations: Organization[];
   opportunities: Opportunity[];
+  signIn: (account: Account) => void;
+  signOut: () => void;
   setDraft: (patch: Partial<OnboardingDraft>) => void;
   completeOnboarding: () => void;
   updateProfile: (patch: Partial<StudentProfile>) => void;
@@ -148,6 +156,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const patch = useCallback((next: Partial<PersistedState>) => {
     setState((current) => ({ ...current, ...next }));
+  }, []);
+
+  const signIn = useCallback((account: Account) => {
+    setState((current) => ({ ...current, account }));
+  }, []);
+
+  /* Signing out takes away what was sent on this student's behalf, because
+     that is what the account was for. What they were browsing — their
+     preferences and their saved list — is device-local and stays. */
+  const signOut = useCallback(() => {
+    setState((current) => ({ ...current, account: null, applications: [] }));
   }, []);
 
   const setDraft = useCallback((next: Partial<OnboardingDraft>) => {
@@ -246,6 +265,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ready,
       organizations: ORGANIZATIONS,
       opportunities,
+      signIn,
+      signOut,
       setDraft,
       completeOnboarding,
       updateProfile,
@@ -277,6 +298,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
     state,
     ready,
     patch,
+    signIn,
+    signOut,
     setDraft,
     completeOnboarding,
     updateProfile,

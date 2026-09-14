@@ -2,8 +2,10 @@
 
 import { notFound, useRouter } from 'next/navigation';
 import { use, useState } from 'react';
+import { AccountGate } from '@/components/AccountGate';
 import { BackButton, LoadingScreen, RequireProfile } from '@/components/Shell';
 import { Tick } from '@/components/Icons';
+import { maskContact } from '@/lib/auth';
 import { Tile, TypeBadge } from '@/components/ui';
 import { TIMING_LABEL, listPhrase } from '@/lib/copy';
 import { useApp } from '@/lib/store';
@@ -25,7 +27,8 @@ export default function InterestPage({ params }: { params: Promise<{ id: string 
 }
 
 function Interest({ id }: { id: string }) {
-  const { profile, opportunities, organizations, expressInterest, updateProfile } = useApp();
+  const { profile, opportunities, organizations, expressInterest, updateProfile, account } =
+    useApp();
   const router = useRouter();
   const [note, setNote] = useState('');
   const [sent, setSent] = useState(false);
@@ -70,6 +73,9 @@ function Interest({ id }: { id: string }) {
               They can see your first name, your age, roughly how far away you are and when you are
               free. Nothing else.
             </p>
+            {account ? (
+              <p className="fit-line">They will reply to {maskContact(account)}.</p>
+            ) : null}
           </div>
           <p className="t-body">
             Most places reply within a few days. You will see it under Activity either way.
@@ -95,6 +101,30 @@ function Interest({ id }: { id: string }) {
             </button>
           </div>
         </div>
+      </div>
+    );
+  }
+
+  /* The gate. Everything before this point — browsing, onboarding, saving —
+     happened without an account, because none of it left the device. This is
+     the first thing that does. */
+  if (!account) {
+    return (
+      <div className="screen">
+        <main className="page gutter">
+          <div className="row gap-3">
+            <BackButton />
+            <TypeBadge type={opportunity.type} />
+          </div>
+          <AccountGate
+            organizationName={organization.name}
+            onDone={() => {
+              /* Signing in re-renders this screen past the gate, with the
+                 opportunity they were looking at still underneath. Nothing
+                 they typed is lost and nothing needs re-finding. */
+            }}
+          />
+        </main>
       </div>
     );
   }

@@ -170,6 +170,51 @@ Nothing about the app requires a container — it is entirely client-side today,
 so a static host serves it just as well and more cheaply. The container is
 worth it once the FastAPI service lands and both halves want the same home.
 
+## Accounts
+
+There is no sign-up wall. A student browses, completes onboarding and saves
+opportunities without an account, because none of that leaves the device. The
+gate stands at the moment they first tap **I'm Interested** — the first time
+something is sent to an adult organization on their behalf, and so the first
+time identity means anything.
+
+`lib/auth.ts` holds the port. Three routes in, all producing the same account:
+Continue with Google, Continue with Apple, or a six-digit code by email or
+text. No passwords — teenagers reuse weak ones everywhere, and a one-time code
+is both safer and fewer taps than inventing one.
+
+Signing out withdraws what was sent on the student's behalf. Their saved list
+and preferences are device-local and stay.
+
+### The stub is not security
+
+`stubAuthProvider` runs in the browser, which means the code it checks sits in
+memory next to the check. It is a seam, not a safeguard, and the code screen
+says so on the page. Everything that matters has to be enforced server-side by
+a managed provider: codes generated and compared on the server, delivered out
+of band, never returned to the client. `AuthProvider` is the interface such a
+provider implements; nothing outside that file knows which one is behind it.
+
+The properties that get lost in that rewrite are pinned by tests: codes
+expire, attempts are capped, a spent challenge cannot be retried even with the
+correct code, resends have a cooldown, and contacts normalise so one person is
+one account.
+
+### Two decisions still open
+
+**School Google accounts.** Districts hand out Workspace for Education
+accounts. A student signing in with one gives their district admin a handle on
+it and loses it at graduation — along with everything they built here. The
+screen warns about it; whether to detect and refuse school domains outright is
+a policy call, not a code one.
+
+**Age still has to be asked.** Neither Google nor Apple reliably returns it,
+so onboarding owns that question whichever route a student comes in through.
+
+Real integration must also use each provider's own button assets and branding
+rules. The buttons here are plain text rather than an approximation of a
+trademark.
+
 ## The welcome illustration
 
 `components/WelcomeHero.tsx` is drawn rather than photographed. A photograph

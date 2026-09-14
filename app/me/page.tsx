@@ -12,6 +12,7 @@ import {
   TRANSPORT_ORDER,
   TYPE_LABEL,
 } from '@/lib/copy';
+import { maskContact } from '@/lib/auth';
 import { RADIUS_OPTIONS, radiusLabel } from '@/lib/sections';
 import { useApp } from '@/lib/store';
 import type { Interest, OpportunityType, Timing, Transportation } from '@/lib/types';
@@ -55,7 +56,8 @@ export default function MePage() {
 }
 
 function Me() {
-  const { profile, updateProfile, notifications, setNotifications, reset } = useApp();
+  const { profile, updateProfile, notifications, setNotifications, reset, account, signOut } =
+    useApp();
   const [sheet, setSheet] = useState<'radius' | 'notifications' | null>(null);
   const student = profile!;
 
@@ -186,6 +188,26 @@ function Me() {
             ? 'Notifications off'
             : `${notifications.types.length} of 3 types · ${notifications.frequency}`}
         </button>
+      </Group>
+
+      <Group title="Your account">
+        {account ? (
+          <>
+            <p className="t-body">
+              Organizations reach you at {maskContact(account)}. Nothing else about you is shared.
+            </p>
+            {/* Signing out takes back what was sent on their behalf. Saying so
+                plainly matters more than the button being tidy. */}
+            <button type="button" className="btn btn-secondary btn-block" onClick={signOut}>
+              Sign out and withdraw what I&rsquo;ve sent
+            </button>
+          </>
+        ) : (
+          <p className="t-body">
+            You don&rsquo;t have one yet, and you don&rsquo;t need one to look around. We&rsquo;ll
+            ask for a way to reach you the first time you tell a place you&rsquo;re interested.
+          </p>
+        )}
       </Group>
 
       <Group title="Employers">
