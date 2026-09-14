@@ -170,6 +170,25 @@ Nothing about the app requires a container — it is entirely client-side today,
 so a static host serves it just as well and more cheaply. The container is
 worth it once the FastAPI service lands and both halves want the same home.
 
+## The welcome illustration
+
+`components/WelcomeHero.tsx` is drawn rather than photographed. A photograph
+of five teenagers picks five specific teenagers, and on the screen that
+answers "is this for someone like me", everyone who does not see themselves in
+it gets a quieter answer. Drawn figures say "people your age" without saying
+"people like these" — which is why the five differ in skin tone, hair and
+dress rather than being one silhouette recoloured.
+
+Imagery is the single exemption from the accent rule. Teal-only-for-action
+governs the interface; a picture obeying it would be a picture of the
+interface, and a photograph would carry every colour too.
+
+To use a photo instead: drop it at `public/hero.jpg` and set `HERO_PHOTO` at
+the top of that file. It fills the same frame at the same radius. Pick one
+where students are doing the work rather than posing — posed group shots are
+the visual signature of a school district brochure, which is the one thing
+§59 of the product spec asks the product not to look like.
+
 ## The thin market
 
 Every market is thin on its first day, so the greeting treats that as the

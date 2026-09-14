@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
+import { WelcomeArt } from '@/components/WelcomeHero';
 import { useApp } from '@/lib/store';
 
 /* The welcome screen asks for one thing, and it is not an account. There is
@@ -28,6 +29,8 @@ export default function Start() {
   return (
     <div className="screen">
       <main className="page gutter" style={{ justifyContent: 'center' }}>
+        <WelcomeArt />
+
         <div className="panel-ink">
           <span className="t-mono" style={{ color: 'var(--yellow)' }}>
             Near you, right now

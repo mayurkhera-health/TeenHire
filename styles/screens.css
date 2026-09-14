@@ -87,6 +87,20 @@
   gap: var(--card-gap);
 }
 
+/* ---------- Welcome hero ---------- */
+
+.hero-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 400 / 225;
+  max-width: 100%;
+  object-fit: cover;
+  border-radius: var(--r-card);
+  /* The same single elevation every card surface gets, and no more. */
+  box-shadow: var(--lift);
+}
+
 /* ---------- Detail screen ---------- */
 
 .hero {
