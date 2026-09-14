@@ -8,10 +8,28 @@ Mobile-first responsive web app. Next.js App Router, TypeScript, plain CSS.
 
 ```bash
 npm install
-npm run dev     # http://localhost:3000
-npm run build   # production build
+npm run dev        # http://localhost:3000
+npm run dev:lan    # also reachable from a phone on the same Wi-Fi
+npm run build
 npm run typecheck
+npm test
 ```
+
+### Testing on a real phone
+
+Worth doing rather than relying on device emulation: the bottom nav and the
+sticky CTA size themselves with `env(safe-area-inset-bottom)`, which only has
+a real value on a physical device, and the thumb-zone rule cannot be checked
+with a mouse.
+
+```bash
+npm run dev:lan
+ipconfig getifaddr en0   # macOS, Wi-Fi — your Mac's address on the network
+```
+
+Open `http://<that-address>:3000` on the phone, same Wi-Fi. Add it to the home
+screen to see it without browser chrome, which is how it was designed to be
+read.
 
 No database and no API keys. Everything runs from seeded data and the
 student's own device.
