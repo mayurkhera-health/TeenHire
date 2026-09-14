@@ -179,11 +179,6 @@ function Detail({ id }: { id: string }) {
       </Sheet>
 
       <div className="sticky-cta" data-inline-on-pointer="true">
-        {!fit.eligible && !application ? (
-          <Link href={`/interest/${opportunity.id}`} className="btn btn-tertiary">
-            Send my interest anyway
-          </Link>
-        ) : null}
         <div className="sticky-cta-row">
           <button
             type="button"
@@ -199,21 +194,18 @@ function Detail({ id }: { id: string }) {
             <Link href="/activity" className="btn btn-secondary" style={{ flex: 1 }}>
               Interest sent — see activity
             </Link>
-          ) : fit.eligible ? (
-            <Link
-              href={`/interest/${opportunity.id}`}
-              className="btn btn-primary"
-              style={{ flex: 1 }}
-            >
-              I'm Interested
-            </Link>
           ) : (
             /* A student who cannot do this one is not locked out of it — the
                rules can be wrong, and being told no by software is worse than
-               being told no by a person. But it stops being the leading
-               action, because the better next step is the one that fits. */
-            <Link href="/discover" className="btn btn-primary" style={{ flex: 1 }}>
-              Find ones I can do
+               being told no by a person. It just stops leading: when they are
+               not eligible the panel above carries the better next step, with
+               a real count attached, and this drops to secondary. */
+            <Link
+              href={`/interest/${opportunity.id}`}
+              className={`btn ${fit.eligible ? 'btn-primary' : 'btn-secondary'}`}
+              style={{ flex: 1 }}
+            >
+              I'm Interested
             </Link>
           )}
         </div>
