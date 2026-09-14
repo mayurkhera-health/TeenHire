@@ -45,7 +45,7 @@ export function Tile({
 }) {
   return (
     <button type="button" className="tile" aria-pressed={selected} onClick={onClick}>
-      <span>
+      <span className="label-stack">
         <span className="tile-label">{label}</span>
         {note ? <span className="tile-note">{note}</span> : null}
       </span>

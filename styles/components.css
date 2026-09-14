@@ -432,17 +432,31 @@
   background: var(--teal-wash);
 }
 
+/* Label and note are a stack, not two inline spans with a margin between
+   them. A margin-top on an inline element does nothing, which is how
+   "YesWe'll mention it" shipped — the two ran together with no separator at
+   all. Anything that pairs a label with a note uses this. */
+.label-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
 .tile-label {
+  display: block;
   font-family: var(--font-display);
   font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.012em;
+  line-height: 1.2;
 }
 
 .tile-note {
+  display: block;
   font-size: 13.5px;
+  line-height: 1.45;
   color: var(--muted);
-  margin-top: 2px;
 }
 
 .tile-tick {

@@ -164,7 +164,7 @@ function LocationStep() {
       />
       <div className="answers">
         <button type="button" className="tile" onClick={useMyLocation} disabled={locating}>
-          <span>
+          <span className="label-stack">
             <span className="tile-label">{locating ? 'Finding you…' : 'Use my location'}</span>
             <span className="tile-note">Fastest way to get a real list</span>
           </span>
