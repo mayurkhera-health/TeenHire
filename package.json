@@ -6,19 +6,24 @@
   "scripts": {
     "dev": "next dev",
     "dev:lan": "next dev -H 0.0.0.0",
+    "db:migrate": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f db/migrations/001_init.sql",
+    "db:seed": "tsx db/seed.ts",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:db": "tsx tests/parity.manual.ts"
   },
   "dependencies": {
     "next": "^16.3.5",
+    "pg": "^8.23.0",
     "react": "19.1.1",
     "react-dom": "19.1.1"
   },
   "devDependencies": {
     "@types/node": "22.10.2",
+    "@types/pg": "^8.23.1",
     "@types/react": "19.0.2",
     "@types/react-dom": "19.0.2",
     "tsx": "^4.23.13",

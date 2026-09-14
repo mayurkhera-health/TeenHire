@@ -17,7 +17,8 @@ import {
 } from '@/lib/copy';
 import { formatDistance } from '@/lib/geo';
 import { isVerified } from '@/lib/types';
-import { countEligibleAlternatives, evaluateFit } from '@/lib/matching';
+import { useOpportunities } from '@/lib/useOpportunities';
+import { DataError, DataLoading } from '@/components/DataError';
 import { useApp } from '@/lib/store';
 
 /* Relevance before detail. Everything a student needs to decide sits above
@@ -34,17 +35,46 @@ export default function OpportunityPage({ params }: { params: Promise<{ id: stri
 }
 
 function Detail({ id }: { id: string }) {
-  const { profile, opportunities, organizations, isSaved, toggleSaved, applicationFor } = useApp();
+  const { profile, isSaved, toggleSaved, applicationFor } = useApp();
   const [trustOpen, setTrustOpen] = useState(false);
 
-  const opportunity = opportunities.find((o) => o.id === id);
-  if (!opportunity) notFound();
+  /* Fetched by id and not filtered: a student who follows a link from a friend
+     has to reach this screen even when they cannot do the job, because the
+     eligibility panel and the alternatives count are the point of arriving. */
+  const { items, loading, error, reload } = useOpportunities(profile, { ids: [id] });
 
-  const organization = organizations.find((o) => o.id === opportunity.organizationId);
-  if (!organization) notFound();
   if (!profile) return <LoadingScreen />;
 
-  const fit = evaluateFit(opportunity, organization, profile);
+  if (error) {
+    return (
+      <div className="screen">
+        <main className="page gutter">
+          <div className="row gap-3">
+            <BackButton />
+          </div>
+          <DataError onRetry={reload} />
+        </main>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="screen">
+        <main className="page gutter">
+          <div className="row gap-3">
+            <BackButton />
+          </div>
+          <DataLoading label="Loading this one…" />
+        </main>
+      </div>
+    );
+  }
+
+  const match = items[0];
+  if (!match) notFound();
+
+  const { opportunity, organization, fit } = match;
   const saved = isSaved(opportunity.id);
   const application = applicationFor(opportunity.id);
 
@@ -218,13 +248,11 @@ function Detail({ id }: { id: string }) {
    one is told plainly why, then handed the count of what they can do — which
    is a real number from the same rules the feed runs, not a guess. */
 function Alternatives({ opportunityId }: { opportunityId: string }) {
-  const { profile, opportunities, organizations } = useApp();
-  if (!profile) return null;
+  const { profile } = useApp();
+  const { items, loading } = useOpportunities(profile);
+  if (!profile || loading) return null;
 
-  const count = countEligibleAlternatives(
-    { opportunities, organizations, student: profile },
-    opportunityId,
-  );
+  const count = items.filter((r) => r.opportunity.id !== opportunityId).length;
   if (count === 0) return null;
 
   return (

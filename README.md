@@ -6,6 +6,29 @@ schedules, limited transport and no résumé.
 
 Mobile-first responsive web app. Next.js App Router, TypeScript, plain CSS.
 
+### Database
+
+The app reads opportunities from Postgres with PostGIS. It will not start
+serving a feed without one — a misconfigured deployment must fail loudly
+rather than quietly serving a fixture.
+
+```bash
+# one-time local cluster
+initdb -D .pgdata -U postgres --auth=trust
+pg_ctl -D .pgdata -o '-p 5433' start
+createdb -h 127.0.0.1 -p 5433 -U postgres teenhire
+
+cp .env.example .env
+export DATABASE_URL="postgres://postgres@127.0.0.1:5433/teenhire?sslmode=disable"
+npm run db:migrate
+npm run db:seed
+```
+
+Managed Postgres works unchanged — nothing in the code is vendor-specific, so
+where the database lives is a deploy-time decision. The one thing that matters
+is distance: every page runs a PostGIS query, so a database in a different
+cloud from the app pays 30–80ms on each one. Co-locate them.
+
 ```bash
 npm install
 npm run dev        # http://localhost:3000
@@ -60,6 +83,34 @@ student's own device.
   organization needs: first name, age, rough distance, availability, interests.
 
 ---
+
+## How the read path works
+
+`db/migrations/001_init.sql` holds the schema, `lib/repository.ts` the
+queries, `app/api/opportunities/route.ts` the one endpoint every screen uses.
+
+The database decides who is eligible — published, from a verified
+organization, old enough, within range — so a row that fails any of those
+never reaches the application layer and no screen or notification can surface
+it by accident. That is §47's query, and PostGIS computes the distance on the
+sphere rather than the app approximating it.
+
+Ranking deliberately stayed in TypeScript. Distance and age are set
+operations a database does better; the ordering rules are product decisions
+pinned by tests, and moving them into SQL would have traded that coverage for
+nothing.
+
+`npm run test:db` proves the two agree. It ran the in-memory rules and the SQL
+side by side across 64 profiles — four places, four radii, four ages — and got
+identical result sets every time, with distances within 0.023 miles (the gap
+is spherical haversine versus PostGIS's spheroidal WGS84; PostGIS is the
+accurate one). Keep it passing until the in-memory path is deleted.
+
+**A failed query is never an empty neighbourhood.** "Nothing near you" is a
+conclusion about a student's town, and one who reaches it stops opening the
+app. An unreachable database renders as a failure with a retry, and the
+greeting count stays blank rather than reading "0 opportunities near you".
+Verified by stopping Postgres and loading the feed.
 
 ## How matching works
 

@@ -1,12 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo } from 'react';
 import { OpportunityCard } from '@/components/OpportunityCard';
 import { NavShell, RequireProfile } from '@/components/Shell';
-import { evaluateFit } from '@/lib/matching';
+import { DataError, DataLoading } from '@/components/DataError';
 import { useApp } from '@/lib/store';
-import type { Ranked } from '@/lib/matching';
+import { useOpportunities } from '@/lib/useOpportunities';
 
 export default function SavedPage() {
   return (
@@ -19,33 +18,33 @@ export default function SavedPage() {
 }
 
 function Saved() {
-  const { profile, saved, opportunities, organizations } = useApp();
+  const { profile, saved } = useApp();
   const student = profile!;
 
-  /* Saved items are evaluated fresh every time. A student who widens their
-     travel range should see a saved listing stop being out of reach. */
-  const items = useMemo<Ranked[]>(() => {
-    return saved.flatMap((id) => {
-      const opportunity = opportunities.find((o) => o.id === id);
-      if (!opportunity) return [];
-      const organization = organizations.find((o) => o.id === opportunity.organizationId);
-      if (!organization) return [];
-      return [{ opportunity, organization, fit: evaluateFit(opportunity, organization, student) }];
-    });
-  }, [saved, opportunities, organizations, student]);
+  /* Fetched by id rather than filtered from the feed: a saved opportunity a
+     student no longer qualifies for still has to appear, with the reason. It
+     is re-evaluated on every load, so widening a travel range brings a saved
+     listing back into reach without anything needing to be re-saved. */
+  const { items, loading, error, reload } = useOpportunities(student, { ids: saved });
 
   return (
     <>
       <header className="stack gap-2">
         <h1 className="t-greeting">Saved</h1>
         <p className="t-sub">
-          {items.length === 0
-            ? 'Nothing saved yet'
-            : `${items.length} kept for later`}
+          {loading || error
+            ? '\u00a0'
+            : items.length === 0
+              ? 'Nothing saved yet'
+              : `${items.length} kept for later`}
         </p>
       </header>
 
-      {items.length === 0 ? (
+      {error ? (
+        <DataError onRetry={reload} />
+      ) : loading ? (
+        <DataLoading label="Loading what you saved…" />
+      ) : items.length === 0 ? (
         <div className="panel-ink">
           <h2 className="t-section" style={{ color: '#fff' }}>
             Tap the heart on anything you like

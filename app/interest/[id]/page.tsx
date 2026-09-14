@@ -4,6 +4,8 @@ import { notFound, useRouter } from 'next/navigation';
 import { use, useState } from 'react';
 import { AccountGate } from '@/components/AccountGate';
 import { BackButton, LoadingScreen, RequireProfile } from '@/components/Shell';
+import { DataError, DataLoading } from '@/components/DataError';
+import { useOpportunities } from '@/lib/useOpportunities';
 import { Tick } from '@/components/Icons';
 import { maskContact } from '@/lib/auth';
 import { Tile, TypeBadge } from '@/components/ui';
@@ -27,17 +29,38 @@ export default function InterestPage({ params }: { params: Promise<{ id: string 
 }
 
 function Interest({ id }: { id: string }) {
-  const { profile, opportunities, organizations, expressInterest, updateProfile, account } =
-    useApp();
+  const { profile, expressInterest, updateProfile, account } = useApp();
+  const { items, loading, error, reload } = useOpportunities(profile, { ids: [id] });
   const router = useRouter();
   const [note, setNote] = useState('');
   const [sent, setSent] = useState(false);
 
-  const opportunity = opportunities.find((o) => o.id === id);
-  if (!opportunity) notFound();
-  const organization = organizations.find((o) => o.id === opportunity.organizationId);
-  if (!organization) notFound();
   if (!profile) return <LoadingScreen />;
+
+  if (error) {
+    return (
+      <div className="screen">
+        <main className="page gutter">
+          <BackButton />
+          <DataError onRetry={reload} />
+        </main>
+      </div>
+    );
+  }
+  if (loading) {
+    return (
+      <div className="screen">
+        <main className="page gutter">
+          <BackButton />
+          <DataLoading label="One moment…" />
+        </main>
+      </div>
+    );
+  }
+
+  const match = items[0];
+  if (!match) notFound();
+  const { opportunity, organization } = match;
 
   /* Progressive profiling: the one thing worth knowing is asked here, at the
      moment it becomes useful, and "Not yet" is an equally good answer. */

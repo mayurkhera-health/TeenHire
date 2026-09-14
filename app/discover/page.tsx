@@ -7,8 +7,9 @@ import { NavShell, RequireProfile } from '@/components/Shell';
 import { Chip, Sheet } from '@/components/ui';
 import { Chevron, Search } from '@/components/Icons';
 import { TIMING_LABEL, TYPE_LABEL } from '@/lib/copy';
-import { countBeyondRadius, matchFeed } from '@/lib/matching';
 import { nearbyLine, widenLabel } from '@/lib/greeting';
+import { useOpportunities } from '@/lib/useOpportunities';
+import { DataError, DataLoading } from '@/components/DataError';
 import {
   EMPTY_FILTERS,
   FILTER_TIMING,
@@ -45,11 +46,14 @@ function Discover() {
   const [expanded, setExpanded] = useState<string[]>([]);
 
   const student = profile!;
+  const nextRadius = RADIUS_OPTIONS.find((r) => r > student.radiusMiles) ?? 25;
 
-  const ranked = useMemo(
-    () => matchFeed({ opportunities, organizations, student }),
-    [opportunities, organizations, student],
-  );
+  /* The feed now comes from Postgres. Eligibility — published, verified, old
+     enough, in range — is decided by the query; this screen only presents
+     what comes back. */
+  const { items: ranked, beyond, loading, error, reload } = useOpportunities(student, {
+    beyondRadius: nextRadius,
+  });
 
   const visible = useMemo(
     () => applyFilters(searchRanked(ranked, query), filters),
@@ -62,11 +66,6 @@ function Discover() {
   );
 
   const searching = query.trim().length > 0 || activeFilterCount(filters) > 0;
-  const nextRadius = RADIUS_OPTIONS.find((r) => r > student.radiusMiles) ?? 25;
-  const beyond = useMemo(
-    () => countBeyondRadius({ opportunities, organizations, student }, nextRadius),
-    [opportunities, organizations, student, nextRadius],
-  );
 
   const nearby = nearbyLine({
     nearby: ranked.length,
@@ -99,8 +98,10 @@ function Discover() {
     <>
       <header className="stack gap-2">
         <h1 className="t-greeting">Hey {student.name} 👋</h1>
-        <p className="t-sub">{nearby.text}</p>
-        {nearby.offerToWiden ? (
+        {/* No count until there is one. A greeting that says "0 near you"
+            while the request is still in flight is a lie that arrives first. */}
+        <p className="t-sub">{loading || error ? '\u00a0' : nearby.text}</p>
+        {!loading && !error && nearby.offerToWiden ? (
           <button type="button" className="btn btn-tertiary btn-inline" onClick={widen}>
             {widenLabel(nextRadius)}
             <Chevron size={16} />
@@ -141,7 +142,11 @@ function Discover() {
         ))}
       </div>
 
-      {visible.length === 0 ? (
+      {error ? (
+        <DataError onRetry={reload} />
+      ) : loading ? (
+        <DataLoading />
+      ) : visible.length === 0 ? (
         <EmptyState
           searching={searching}
           beyond={beyond}

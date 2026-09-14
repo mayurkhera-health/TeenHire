@@ -2,6 +2,8 @@
 
 import Link from 'next/link';
 import { NavShell, RequireProfile } from '@/components/Shell';
+import { DataError, DataLoading } from '@/components/DataError';
+import { useOpportunities } from '@/lib/useOpportunities';
 import { LogoTile, TypeBadge } from '@/components/ui';
 import { postedPhrase } from '@/lib/copy';
 import { useApp } from '@/lib/store';
@@ -30,8 +32,12 @@ export default function ActivityPage() {
 }
 
 function Activity() {
-  const { applications, opportunities, organizations, withdrawInterest } = useApp();
+  const { profile, applications, withdrawInterest } = useApp();
   const live = applications.filter((a) => a.status !== 'WITHDRAWN');
+  const { items, loading, error, reload } = useOpportunities(profile, {
+    ids: applications.map((a) => a.opportunityId),
+  });
+  const byId = new Map(items.map((r) => [r.opportunity.id, r]));
 
   return (
     <>
@@ -42,7 +48,11 @@ function Activity() {
         </p>
       </header>
 
-      {applications.length === 0 ? (
+      {applications.length > 0 && error ? (
+        <DataError onRetry={reload} />
+      ) : applications.length > 0 && loading ? (
+        <DataLoading label="Loading what you sent…" />
+      ) : applications.length === 0 ? (
         <div className="panel-ink">
           <h2 className="t-section" style={{ color: '#fff' }}>
             This fills up once you say you're interested
@@ -57,10 +67,9 @@ function Activity() {
       ) : (
         <div className="card-list">
           {applications.map((application) => {
-            const opportunity = opportunities.find((o) => o.id === application.opportunityId);
-            if (!opportunity) return null;
-            const organization = organizations.find((o) => o.id === opportunity.organizationId);
-            if (!organization) return null;
+            const match = byId.get(application.opportunityId);
+            if (!match) return null;
+            const { opportunity, organization } = match;
             const status = STATUS_COPY[application.status];
 
             return (
