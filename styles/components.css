@@ -1,0 +1,554 @@
+/* The component set. Everything a screen is allowed to be built from. */
+
+/* ---------- Opportunity card ---------- */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--heading-gap);
+  padding: 18px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift);
+  text-align: left;
+  width: 100%;
+}
+
+.card-head {
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) 30px;
+  gap: var(--s3);
+  align-items: start;
+}
+
+.card-title {
+  /* Two lines maximum. A third line means the title is doing the job of
+     the description, and the card has no description. */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.card-org {
+  margin-top: 3px;
+}
+
+.logo {
+  width: 46px;
+  height: 46px;
+  border-radius: var(--r-logo);
+  overflow: hidden;
+  flex: none;
+  display: grid;
+  place-items: center;
+  background: var(--type-bg, var(--teal-wash));
+  color: var(--type-ink, var(--teal-wash-ink));
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.logo-sm {
+  width: 56px;
+  height: 56px;
+  font-size: 19px;
+}
+
+/* The save heart sits top right and never competes with the button. */
+.heart {
+  width: 30px;
+  height: 30px;
+  margin: -7px -4px 0 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  border-radius: var(--r-pill);
+  position: relative;
+  transition: color var(--t-select) var(--ease);
+}
+
+/* Visual size stays 30px; the hit area is padded out to 44px. */
+.heart::after {
+  content: '';
+  position: absolute;
+  inset: -7px;
+}
+
+.heart[data-saved='true'] {
+  color: var(--teal);
+}
+
+/* ---------- Money block ---------- */
+/* Pay never sits bare on white. It always has its warm ground under it. */
+
+.money {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--s1) var(--s3);
+  padding: 12px 16px;
+  background: var(--money-bg);
+  border-radius: var(--r-block);
+}
+
+.money-note {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--warn);
+}
+
+/* ---------- Meta chip row ---------- */
+
+.meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s2) var(--s3);
+}
+
+.meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.meta-item svg {
+  color: var(--muted-ui);
+  flex: none;
+}
+
+/* ---------- Badges ---------- */
+/* Three type badges and one trust badge. That is the whole vocabulary. */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 9px;
+  border-radius: var(--r-badge);
+  background: var(--type-bg);
+  color: var(--type-ink);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.badge-verified {
+  background: transparent;
+  color: var(--teal);
+  padding-inline: 0;
+}
+
+/* ---------- Chips ---------- */
+/* One control for filters, availability, interests and transportation. */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  min-height: 44px;
+  padding: 9px 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  font-size: 15px;
+  font-weight: 500;
+  text-align: center;
+  transition:
+    background var(--t-select) var(--ease),
+    color var(--t-select) var(--ease),
+    border-color var(--t-select) var(--ease);
+}
+
+/* Selection is never carried by color alone: the weight shifts and, where
+   multi-select needs the reassurance, a tick appears. */
+.chip[aria-pressed='true'],
+.chip[data-selected='true'] {
+  background: var(--teal);
+  border-color: var(--teal);
+  color: #fff;
+  font-weight: 700;
+}
+
+.chip:disabled {
+  opacity: 0.45;
+}
+
+.chip-row {
+  display: flex;
+  gap: var(--s2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-inline: var(--gutter);
+  margin-inline: calc(var(--gutter) * -1);
+  scroll-padding-inline: var(--gutter);
+}
+
+.chip-row::-webkit-scrollbar {
+  display: none;
+}
+
+.chip-row > * {
+  flex: none;
+}
+
+/* In onboarding chips wrap. They never scroll sideways there — a student
+   should not have to discover an option by swiping. */
+.chip-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+/* ---------- Buttons ---------- */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--s2);
+  min-height: 52px;
+  padding: 14px 22px;
+  border-radius: var(--r-button);
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  transition:
+    transform var(--t-press) var(--ease),
+    opacity var(--t-press) var(--ease),
+    background var(--t-select) var(--ease);
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: var(--teal);
+  color: #fff;
+}
+
+/* On ink panels the primary turns orange so the action still leads. */
+.panel-ink .btn-primary {
+  background: var(--orange);
+  color: #fff;
+}
+
+.btn-secondary {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line-strong);
+}
+
+/* There is no outline-teal button. It reads as disabled. */
+.btn-tertiary {
+  background: none;
+  color: var(--teal);
+  padding-inline: 0;
+  min-height: 44px;
+}
+
+.btn-yellow {
+  background: var(--yellow);
+  color: var(--butter-ink);
+}
+
+.btn:disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+.btn-block {
+  width: 100%;
+}
+
+/* ---------- Eligibility panel ---------- */
+
+.fit {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+  padding: 16px;
+  border-radius: var(--r-panel);
+  background: var(--teal-wash);
+  color: var(--teal-wash-ink);
+}
+
+.fit-heading {
+  font-family: var(--font-display);
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.fit-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  font-size: 14.5px;
+  line-height: 1.45;
+}
+
+.fit-line svg {
+  flex: none;
+  margin-top: 2px;
+}
+
+/* When a rule fails the panel moves to the warm ground and names the one
+   blocking reason. Never a percentage, never a score. */
+.fit[data-eligible='false'] {
+  background: var(--money-bg);
+  color: var(--warn);
+}
+
+/* ---------- Sticky bottom action ---------- */
+/* The primary action of every screen sits in the bottom 120px. Nothing
+   destructive or irreversible is ever put there. */
+
+.sticky-cta {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s6) var(--gutter) calc(var(--s5) + env(safe-area-inset-bottom));
+  /* The fade has to reach full paper before the buttons start, or the
+     content underneath shows through them and reads as a rendering fault. */
+  background: linear-gradient(to bottom, rgba(244, 248, 246, 0) 0%, var(--paper) 26px);
+}
+
+.sticky-cta-row {
+  display: flex;
+  gap: var(--s3);
+  align-items: stretch;
+}
+
+/* ---------- Bottom navigation ---------- */
+
+.nav {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  min-height: var(--nav-h);
+  padding-bottom: max(10px, env(safe-area-inset-bottom));
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 12px 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.nav-item svg {
+  color: var(--muted-ui);
+}
+
+.nav-item[aria-current='page'] {
+  color: var(--teal);
+  font-weight: 700;
+}
+
+.nav-item[aria-current='page'] svg {
+  color: var(--teal);
+}
+
+/* ---------- Progress rail ---------- */
+
+.rail {
+  display: flex;
+  gap: 5px;
+}
+
+.rail-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--line);
+}
+
+.rail-bar[data-done='true'] {
+  background: var(--teal);
+}
+
+/* ---------- Onboarding answer tile ---------- */
+
+.tile {
+  display: flex;
+  align-items: center;
+  gap: var(--s4);
+  min-height: 68px;
+  padding: 22px 24px;
+  border-radius: var(--r-tile);
+  border: 1px solid var(--line);
+  background: var(--card);
+  text-align: left;
+  width: 100%;
+  transition:
+    border-color var(--t-select) var(--ease),
+    background var(--t-select) var(--ease),
+    transform var(--t-press) var(--ease);
+}
+
+.tile:active {
+  transform: scale(0.98);
+}
+
+.tile[aria-pressed='true'],
+.tile[data-selected='true'] {
+  border-color: var(--teal);
+  border-width: 2px;
+  padding: 21px 23px;
+  background: var(--teal-wash);
+}
+
+.tile-label {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+}
+
+.tile-note {
+  font-size: 13.5px;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.tile-tick {
+  margin-left: auto;
+  color: var(--teal);
+  flex: none;
+}
+
+/* ---------- Bottom sheet ---------- */
+/* Secondary choices open a sheet, never a dropdown. */
+
+.sheet-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(12, 42, 38, 0.38);
+  animation: fade var(--t-sheet) var(--ease);
+}
+
+.sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 81;
+  max-height: 86svh;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  padding: var(--s3) var(--gutter) calc(var(--s6) + env(safe-area-inset-bottom));
+  background: var(--paper);
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  animation: rise var(--t-sheet) var(--ease);
+}
+
+.sheet-handle {
+  width: 42px;
+  height: 4px;
+  border-radius: var(--r-pill);
+  background: var(--line-strong);
+  margin: 0 auto var(--s2);
+  flex: none;
+}
+
+@keyframes rise {
+  from {
+    transform: translateY(14%);
+    opacity: 0;
+  }
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- Ink panel / empty state ---------- */
+/* An empty state is never "No results found". It is a real next step
+   with a count attached. */
+
+.panel-ink {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s4);
+  align-items: flex-start;
+  padding: var(--s6);
+  border-radius: var(--r-sheet);
+  background: var(--ink);
+  color: #fff;
+}
+
+.panel-ink .t-body {
+  color: rgba(255, 255, 255, 0.82);
+}
+
+/* ---------- Striped placeholder ---------- */
+/* Photography is optional and never load-bearing. Where an image is
+   missing, the slot fills with 45deg stripes from the palette. */
+
+.stripes {
+  background-image: repeating-linear-gradient(
+    45deg,
+    var(--type-bg) 0,
+    var(--type-bg) 9px,
+    color-mix(in srgb, var(--type-ink) 14%, var(--type-bg)) 9px,
+    color-mix(in srgb, var(--type-ink) 14%, var(--type-bg)) 18px
+  );
+}
+
+/* ---------- Surfaces ---------- */
+
+.panel {
+  padding: var(--s5);
+  border-radius: var(--r-panel);
+  background: var(--card);
+  border: 1px solid var(--line);
+}
+
+.divider {
+  height: 1px;
+  background: var(--line);
+  border: 0;
+  margin: 0;
+}
+
+.pressable {
+  transition:
+    opacity var(--t-press) var(--ease),
+    transform var(--t-press) var(--ease);
+}
+
+.pressable:active {
+  opacity: 0.88;
+  transform: scale(0.98);
+}

@@ -1,0 +1,253 @@
+/* Screen patterns and responsive behaviour.
+   Authored at 390px and treated as fluid, not fixed. */
+
+.page {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+  padding-block: var(--s5) var(--s6);
+  width: 100%;
+  max-width: var(--max-feed);
+  margin-inline: auto;
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--heading-gap);
+}
+
+.section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s3);
+}
+
+.section-head .see-all {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--teal);
+  flex: none;
+  /* Stays 13px type, but the hit area is padded out to the 44px floor. */
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--s2);
+  margin-inline-end: calc(var(--s2) * -1);
+  margin-block: -12px;
+}
+
+.card-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+}
+
+/* Search is a chip-height entry, not a hero bar. */
+.search {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  min-height: 46px;
+  padding: 0 16px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+
+.search input {
+  flex: 1;
+  min-width: 0;
+  /* Stretched to the full height of the shell so the whole 46px control is
+     tappable, not just the 25px the text occupies. */
+  align-self: stretch;
+  border: 0;
+  outline: 0;
+  background: none;
+  font-size: 15px;
+}
+
+.search input::placeholder {
+  color: var(--muted);
+}
+
+/* ---------- Question screen ---------- */
+
+.question {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.answers {
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+}
+
+/* ---------- Detail screen ---------- */
+
+.hero {
+  aspect-ratio: 16 / 9;
+  border-radius: var(--r-card);
+  overflow: hidden;
+  background-color: var(--type-bg);
+}
+
+.detail-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s3);
+}
+
+.bullets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+}
+
+.bullet {
+  display: flex;
+  gap: var(--s3);
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--ink-soft);
+}
+
+.bullet::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  margin-top: 9px;
+  border-radius: var(--r-pill);
+  background: var(--teal);
+  flex: none;
+}
+
+.map > .stripes {
+  position: absolute;
+  inset: 0;
+  opacity: 0.55;
+}
+
+.map {
+  min-height: 132px;
+  border-radius: var(--r-block);
+  border: 1px solid var(--line);
+  background: var(--teal-wash);
+  display: flex;
+  align-items: flex-end;
+  padding: var(--s3);
+  position: relative;
+  overflow: hidden;
+}
+
+/* ---------- Compact row ---------- */
+
+.row-card {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: var(--s3);
+  align-items: center;
+  padding: var(--s3);
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  box-shadow: var(--lift);
+  text-align: left;
+  width: 100%;
+}
+
+/* ---------- Employer console ---------- */
+
+.console {
+  max-width: var(--max-console);
+}
+
+.console-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--section-gap);
+}
+
+/* ---------- Under 360px ---------- */
+
+@media (max-width: 359px) {
+  .t-display {
+    font-size: 30px;
+  }
+  .tile {
+    padding: 20px;
+  }
+  .tile[aria-pressed='true'],
+  .tile[data-selected='true'] {
+    padding: 19px;
+  }
+}
+
+/* ---------- From 640px: two-column feed, nav moves up ---------- */
+
+@media (min-width: 640px) {
+  .card-list[data-grid='true'] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .nav {
+    position: sticky;
+    top: 0;
+    bottom: auto;
+    grid-template-columns: repeat(4, auto);
+    justify-content: center;
+    gap: var(--s5);
+    min-height: 62px;
+    padding-bottom: 0;
+    border-top: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .nav-item {
+    flex-direction: row;
+    gap: var(--s2);
+    padding-inline: var(--s3);
+  }
+
+  .screen[data-nav='top'] {
+    flex-direction: column-reverse;
+    justify-content: flex-end;
+  }
+}
+
+/* On a pointer device the detail CTA sits inline — there is no thumb to
+   reach with, and a floating bar just eats the page. */
+@media (pointer: fine) and (min-width: 640px) {
+  .sticky-cta[data-inline-on-pointer='true'] {
+    position: static;
+    background: none;
+    padding-inline: 0;
+  }
+
+  .sticky-cta[data-inline-on-pointer='true'] .sticky-cta-row {
+    max-width: 420px;
+  }
+}
+
+/* ---------- From 900px: employer console gets a left rail ---------- */
+
+@media (min-width: 900px) {
+  .console-grid {
+    display: grid;
+    grid-template-columns: 232px minmax(0, 1fr);
+    gap: var(--s7);
+    align-items: start;
+  }
+
+  .console .card-list[data-grid='true'] {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+}

@@ -1,0 +1,93 @@
+/* Citrus Teal Lead — design tokens.
+   Color is assigned by role, never by decoration. Teal is the only action
+   color, orange appears only where money appears, yellow only on volunteer.
+   Anything that needs a fourth accent is a screen that needs redesigning. */
+
+:root {
+  /* --- Ink and ground --- */
+  --ink: #0c2a26;
+  --ink-soft: #2e4b47;
+  --muted: #5a736e;
+  --muted-ui: #8fa5a0; /* icon strokes only, never text */
+  --paper: #f4f8f6;
+  --card: #ffffff;
+  --line: rgba(12, 42, 38, 0.12);
+  --line-strong: rgba(12, 42, 38, 0.2);
+
+  /* --- The three accents --- */
+  --teal: #0f6b63;
+  --teal-press: #0b544e;
+  --orange: #c43b0c;
+  --yellow: #ffc74a;
+
+  /* --- Role washes (not accents) --- */
+  --teal-wash: #e7f3f1;
+  --teal-wash-ink: #0b4e48;
+  --money-bg: #fff1e7;
+  --sand: #f3eee4;
+  --sand-ink: #57492f;
+  --butter: #fff3d6;
+  --butter-ink: #6b4e0a;
+  --warn: #8a4a2c;
+
+  /* --- Type --- */
+  --font-display: var(--font-bricolage), 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
+  --font-body: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-space-mono), 'Space Mono', ui-monospace, monospace;
+
+  /* --- 4px base scale --- */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 20px;
+  --s6: 26px;
+  --s7: 32px;
+
+  --gutter: 20px;
+  --card-gap: 12px;
+  --heading-gap: 14px;
+  --section-gap: 20px;
+
+  /* --- Geometry --- */
+  --r-card: 22px;
+  --r-panel: 18px;
+  --r-block: 14px;
+  --r-button: 16px;
+  --r-tile: 18px;
+  --r-badge: 7px;
+  --r-logo: 14px;
+  --r-sheet: 26px;
+  --r-pill: 999px;
+
+  /* --- Elevation. Used once per surface class and no more. --- */
+  --lift: 0 10px 24px -20px rgba(12, 42, 38, 0.5);
+
+  /* --- Motion. Functional and short. --- */
+  --t-select: 180ms;
+  --t-sheet: 240ms;
+  --t-press: 120ms;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* --- Layout ceilings --- */
+  --max-feed: 760px;
+  --max-content: 1200px;
+  --max-console: 1080px;
+  --nav-h: 78px;
+  --thumb-zone: 120px;
+}
+
+/* Type badges and placeholder tints carry their ground and their ink
+   together, so a badge can never be rendered in an unreadable pairing. */
+.type-paid {
+  --type-bg: var(--teal-wash);
+  --type-ink: var(--teal-wash-ink);
+}
+.type-internship {
+  --type-bg: var(--sand);
+  --type-ink: var(--sand-ink);
+}
+.type-volunteer {
+  --type-bg: var(--butter);
+  --type-ink: var(--butter-ink);
+}
