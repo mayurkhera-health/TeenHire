@@ -1,0 +1,22 @@
+# Fly.io deployment. `fly launch` will offer to overwrite this — decline, or
+# it will regenerate a Dockerfile that misses the static-assets copy.
+
+app = "teenhire"
+primary_region = "sjc"
+
+[build]
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  # The app holds no server-side state, so a machine can be suspended between
+  # visits and resumed in well under a second. Set min_machines_running = 1 if
+  # a first-visit pause is unacceptable for a demo.
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

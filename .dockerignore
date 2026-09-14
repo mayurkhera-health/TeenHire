@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.gitignore
+README.md
+Dockerfile
+.dockerignore
+fly.toml
+tests
+npm-debug.log*
+.DS_Store
+.env*
+*.tsbuildinfo
+next-env.d.ts

@@ -146,6 +146,30 @@ Verified in a real browser at 320px, 390px and 900px:
 - **Organizations in the seed data are invented.** None of these postings are
   real, and none are attributed to a real company.
 
+## Deploying
+
+The app is a Next.js server with no database, no environment variables and no
+secrets, so anywhere that runs Node will host it.
+
+**Fly.io** — `Dockerfile` and `fly.toml` are in the repo:
+
+```bash
+fly launch --no-deploy   # decline when it offers to overwrite either file
+fly deploy
+```
+
+The Dockerfile exists rather than being generated because `output: 'standalone'`
+emits the server without `.next/static`. A generated Dockerfile that misses
+that copy step deploys a site that renders with no CSS and no obvious cause.
+
+`fly.toml` suspends the machine when idle and resumes on the next request,
+which is appropriate for something holding no server-side state. Set
+`min_machines_running = 1` if a pause on the first visit would spoil a demo.
+
+Nothing about the app requires a container — it is entirely client-side today,
+so a static host serves it just as well and more cheaply. The container is
+worth it once the FastAPI service lands and both halves want the same home.
+
 ## The thin market
 
 Every market is thin on its first day, so the greeting treats that as the
