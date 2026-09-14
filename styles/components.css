@@ -260,6 +260,14 @@
   min-height: 44px;
 }
 
+/* A tertiary that sits inline with body copy rather than centred in its
+   container — a bare label centred on a full-width row reads as a heading,
+   not as something to tap. */
+.btn-inline {
+  align-self: flex-start;
+  justify-content: flex-start;
+}
+
 .btn-yellow {
   background: var(--yellow);
   color: var(--butter-ink);

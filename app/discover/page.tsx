@@ -5,9 +5,10 @@ import { useMemo, useState } from 'react';
 import { CompactRow, OpportunityCard } from '@/components/OpportunityCard';
 import { NavShell, RequireProfile } from '@/components/Shell';
 import { Chip, Sheet } from '@/components/ui';
-import { Search } from '@/components/Icons';
+import { Chevron, Search } from '@/components/Icons';
 import { TIMING_LABEL, TYPE_LABEL } from '@/lib/copy';
 import { countBeyondRadius, matchFeed } from '@/lib/matching';
+import { nearbyLine, widenLabel } from '@/lib/greeting';
 import {
   EMPTY_FILTERS,
   FILTER_TIMING,
@@ -67,6 +68,21 @@ function Discover() {
     [opportunities, organizations, student, nextRadius],
   );
 
+  const nearby = nearbyLine({
+    nearby: ranked.length,
+    beyond,
+    radiusMiles: student.radiusMiles,
+    nextRadius,
+  });
+
+  /* Widening is the one move that helps in a thin market, so it happens here
+     rather than sending a student off to find the radius control themselves. */
+  const widen = () => {
+    updateProfile({ radiusMiles: nextRadius });
+    setFilters(EMPTY_FILTERS);
+    setQuery('');
+  };
+
   const toggleType = (type: OpportunityType) =>
     setFilters((f) => ({
       ...f,
@@ -83,9 +99,13 @@ function Discover() {
     <>
       <header className="stack gap-2">
         <h1 className="t-greeting">Hey {student.name} 👋</h1>
-        <p className="t-sub">
-          {ranked.length} {ranked.length === 1 ? 'opportunity' : 'opportunities'} near you
-        </p>
+        <p className="t-sub">{nearby.text}</p>
+        {nearby.offerToWiden ? (
+          <button type="button" className="btn btn-tertiary btn-inline" onClick={widen}>
+            {widenLabel(nextRadius)}
+            <Chevron size={16} />
+          </button>
+        ) : null}
       </header>
 
       <div className="search">
@@ -126,11 +146,7 @@ function Discover() {
           searching={searching}
           beyond={beyond}
           nextRadius={nextRadius}
-          onWiden={() => {
-            updateProfile({ radiusMiles: nextRadius });
-            setFilters(EMPTY_FILTERS);
-            setQuery('');
-          }}
+          onWiden={widen}
           onClear={() => {
             setFilters(EMPTY_FILTERS);
             setQuery('');

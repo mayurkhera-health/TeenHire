@@ -128,6 +128,31 @@ Verified in a real browser at 320px, 390px and 900px:
 - **Organizations in the seed data are invented.** None of these postings are
   real, and none are attributed to a real company.
 
+## The thin market
+
+Every market is thin on its first day, so the greeting treats that as the
+default case rather than the edge. `lib/greeting.ts` holds the ladder:
+
+| In range | Line |
+| --- | --- |
+| 0 | *Nothing within 3 miles yet* — the empty panel below carries the count and the action, so no number is said twice |
+| 1–2, more further out | *2 within 5 miles, and 10 more just past that*, with a one-tap **Look 10 miles out** |
+| 1–2, nothing further out | *2 near you right now* |
+| 3+ | *16 opportunities near you* |
+
+Below three, a bare total stops reading as a selection and starts reading as
+scraps, which is how a student decides the app is not worth opening again.
+The line switches from reporting a number to pointing at the move that helps.
+
+Everything it says comes from what the feed knows — how many are in range, and
+how many sit between here and the next radius up. It never says "more added
+every week" or "check back soon": there is no data behind either, and a thin
+market is exactly where that would be most tempting to write. `npm test`
+pins both properties.
+
+Widening from the greeting writes to the student's profile rather than to
+component state, so the change survives a reload.
+
 ## Reach, and why it shows no number
 
 `lib/reach.ts`. The posting flow's last step is where an employer decides
