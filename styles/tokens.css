@@ -1,39 +1,54 @@
-/* Citrus Teal Lead — design tokens.
-   Color is assigned by role, never by decoration. Teal is the only action
-   color, orange appears only where money appears, yellow only on volunteer.
-   Anything that needs a fourth accent is a screen that needs redesigning. */
+/* Design tokens — migrated to the Screen 01 system.
+ *
+ * Warmer ground, a single type family, softer and heavier elevation. Three
+ * decisions in here depart from a literal reading of that spec, each noted
+ * where it happens; they are the places where applying it verbatim would have
+ * broken something the product needs. */
 
 :root {
   /* --- Ink and ground --- */
-  --ink: #0c2a26;
-  --ink-soft: #2e4b47;
-  --muted: #5a736e;
-  --muted-ui: #8fa5a0; /* icon strokes only, never text */
-  --paper: #f4f8f6;
-  --card: #ffffff;
-  --line: rgba(12, 42, 38, 0.12);
-  --line-strong: rgba(12, 42, 38, 0.2);
+  --ink: #12332b;
+  --ink-soft: #5c6b64;
+
+  /* Information a student needs — org name, distance, timing, minimum age.
+     The spec's helper grey (#8A948E) is 3.0:1 on the card, below the 4.5:1
+     floor, and its own accessibility section pointedly claims only #12332B
+     and #5C6B64 pass. So meta uses the body colour and #8A948E is reserved
+     for text that carries nothing load-bearing. */
+  --muted: #5c6b64;
+  --helper: #8a948e;
+  /* Icon strokes only. Never text. */
+  --muted-ui: #8a948e;
+
+  --paper: #edebe5;
+  --card: #fbfaf7;
+  --line: #dde3df;
+  --line-strong: #c6d0ca;
 
   /* --- The three accents --- */
-  --teal: #0f6b63;
-  --teal-press: #0b544e;
+  --teal: #0e6a57;
+  --teal-press: #12332b;
+  /* Screen 01 says yellow and terracotta live only in the illustration. That
+     screen has no pay figure and no volunteer listing on it. Applied globally
+     the rule would delete the money and volunteer colour roles, which the
+     product spec requires — orange only where money appears, yellow only on
+     volunteer. They stay, retuned against the warmer ground. */
   --orange: #c43b0c;
   --yellow: #ffc74a;
 
   /* --- Role washes (not accents) --- */
-  --teal-wash: #e7f3f1;
+  --teal-wash: #e3efea;
   --teal-wash-ink: #0b4e48;
   --money-bg: #fff1e7;
-  --sand: #f3eee4;
+  --sand: #f2ece1;
   --sand-ink: #57492f;
   --butter: #fff3d6;
   --butter-ink: #6b4e0a;
   --warn: #8a4a2c;
 
-  /* --- Type --- */
-  --font-display: var(--font-bricolage), 'Bricolage Grotesque', 'Segoe UI', system-ui, sans-serif;
-  --font-body: var(--font-jakarta), 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
-  --font-mono: var(--font-space-mono), 'Space Mono', ui-monospace, monospace;
+  /* --- Type. One family now. --- */
+  --font-display: var(--font-figtree), 'Figtree', Helvetica, sans-serif;
+  --font-body: var(--font-figtree), 'Figtree', Helvetica, sans-serif;
 
   /* --- 4px base scale --- */
   --s1: 4px;
@@ -50,23 +65,27 @@
   --section-gap: 20px;
 
   /* --- Geometry --- */
-  --r-card: 22px;
-  --r-panel: 18px;
+  --r-card: 28px;
+  --r-panel: 20px;
   --r-block: 14px;
   --r-button: 16px;
-  --r-tile: 18px;
-  --r-badge: 7px;
+  --r-tile: 20px;
+  --r-badge: 8px;
   --r-logo: 14px;
-  --r-sheet: 26px;
+  --r-sheet: 28px;
   --r-pill: 999px;
 
-  /* --- Elevation. Used once per surface class and no more. --- */
-  --lift: 0 10px 24px -20px rgba(12, 42, 38, 0.5);
+  /* --- Elevation ---
+     Screen 01's shadow is built for one card on an empty ground. Repeated
+     down a feed it turns the page to mud, so lists get the same shadow at a
+     weight that survives repetition. Still one elevation per surface class. */
+  --lift: 0 24px 60px rgba(18, 51, 43, 0.14);
+  --lift-list: 0 10px 28px rgba(18, 51, 43, 0.07);
 
-  /* --- Motion. Functional and short. --- */
+  /* --- Motion --- */
   --t-select: 180ms;
   --t-sheet: 240ms;
-  --t-press: 120ms;
+  --t-press: 140ms;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 
   /* --- Layout ceilings --- */
@@ -75,10 +94,10 @@
   --max-console: 1080px;
   --nav-h: 78px;
   --thumb-zone: 120px;
+
+  --focus-ring: rgba(14, 106, 87, 0.12);
 }
 
-/* Type badges and placeholder tints carry their ground and their ink
-   together, so a badge can never be rendered in an unreadable pairing. */
 .type-paid {
   --type-bg: var(--teal-wash);
   --type-ink: var(--teal-wash-ink);

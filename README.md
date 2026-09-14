@@ -215,23 +215,41 @@ Real integration must also use each provider's own button assets and branding
 rules. The buttons here are plain text rather than an approximation of a
 trademark.
 
-## Screen 01 is on a different design system
+## The design system
 
-`styles/welcome.css`. The welcome screen was respecified with its own palette
-(warmer `#EDEBE5` ground, `#FBFAF7` card, `#0E6A57` primary), Figtree
-throughout, a 28px card radius and a much softer, heavier elevation. It is
-scoped to that screen rather than promoted to `:root`.
+The whole app runs on the Screen 01 system: `#EDEBE5` ground, `#FBFAF7` card,
+`#0E6A57` primary, `#12332B` ink, Figtree throughout, 28px card radius, and
+nothing below 13px. Tokens live in `styles/tokens.css` and `styles/welcome.css`
+derives from them, so the welcome screen cannot drift from the rest.
 
-That scoping is deliberate. Promoting it would restyle every other screen and
-break three of Citrus Teal Lead's own rules at once — one elevation per
-surface class, the three-family type stack, and the 10px mono badges that
-"nothing below 13px" would outlaw (9 call sites). Migrating the rest is a
-decision worth making on purpose; it is not a side effect of building one
-screen. Until it is made, screens 02 onward are unchanged and the app is
-visually split at the welcome screen.
+Three departures from a literal reading of that spec, each because applying it
+verbatim broke something:
 
-The name is optional here. An empty name proceeds and the feed greets with a
-generic hello, so there is no validation and no error state on this screen.
+**Helper grey is not used for information.** `#8A948E` measures 3.00:1 on the
+card — below the 4.5:1 floor. The spec's own accessibility note lists only
+`#12332B` and `#5C6B64` as passing and never claims that one does. Org names,
+distances, timings and ages are facts a student needs, so `--muted` is
+`#5C6B64`; `#8A948E` survives as `--helper` for text that carries nothing.
+
+**Yellow and terracotta stay in the interface.** Screen 01 says they live only
+in the illustration — but that screen has no pay figure and no volunteer
+listing on it. Applied globally the rule deletes the money and volunteer
+colour roles the product spec requires: orange only where money appears,
+yellow only on volunteer.
+
+**Two elevations, not one.** `0 24px 60px rgba(18,51,43,.14)` is built for a
+single card on an empty ground. Repeated down a feed it turns the page to mud,
+so lists use `--lift-list` — the same shadow at a weight that survives
+repetition. Still one elevation per surface class.
+
+Retired in the migration: Bricolage Grotesque, Plus Jakarta Sans and Space
+Mono. The 10px mono badges could not survive the 13px floor, so `PAID JOB` and
+friends now take Screen 01's field-label treatment — 13px, 600, uppercase,
+0.04em — which is the same machine-ish read in the new system's own voice.
+
+Verified across 14 screens at 390px: one font family in use, no text under
+13px, no contrast failure against its actual background, no tap target under
+44px, no horizontal overflow, no console errors.
 
 ## The welcome illustration
 

@@ -238,7 +238,7 @@ export function AccountGate({
             placeholder="000000"
             inputMode="numeric"
             autoComplete="one-time-code"
-            style={{ fontFamily: 'var(--font-mono)', fontSize: 22, letterSpacing: '0.3em' }}
+            style={{ fontSize: 22, letterSpacing: '0.3em', fontVariantNumeric: 'tabular-nums' }}
           />
         </div>
         {error ? (
@@ -256,7 +256,9 @@ export function AccountGate({
           <h2 className="fit-heading">Prototype only</h2>
           <p className="fit-line">
             Nothing was actually sent. Your code is{' '}
-            <strong style={{ fontFamily: 'var(--font-mono)' }}>{challenge.devCode}</strong>.
+            <strong style={{ fontVariantNumeric: 'tabular-nums', letterSpacing: '0.12em' }}>
+              {challenge.devCode}
+            </strong>.
           </p>
         </div>
       ) : null}

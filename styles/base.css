@@ -17,8 +17,8 @@ body {
   background: var(--paper);
   color: var(--ink);
   font-family: var(--font-body);
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 16px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -63,33 +63,39 @@ svg {
 }
 
 :focus-visible {
-  outline: 2.5px solid var(--teal);
-  outline-offset: 3px;
-  border-radius: 4px;
+  outline: none;
+  box-shadow: 0 0 0 3px var(--focus-ring), 0 0 0 1.5px var(--teal);
+  border-radius: 6px;
 }
 
-/* --- Type roles --- */
+/* --- Type roles ---
+   One family, and nothing below 13px. The old 10-12px Space Mono badges and
+   nav labels are gone; where the product needs a machine-ish label it now
+   uses the field-label treatment from Screen 01 — 13px, 600, uppercase,
+   0.04em — which is the same idea in the new system's own voice. */
 
 .t-display {
   font-family: var(--font-display);
-  font-size: 36px;
-  font-weight: 700;
-  letter-spacing: -0.025em;
+  font-size: 38px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   line-height: 1.04;
+  text-wrap: balance;
 }
 
 .t-greeting {
   font-family: var(--font-display);
   font-size: 33px;
-  font-weight: 700;
-  letter-spacing: -0.022em;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   line-height: 1.08;
+  text-wrap: balance;
 }
 
 .t-section {
   font-family: var(--font-display);
   font-size: 20px;
-  font-weight: 700;
+  font-weight: 800;
   letter-spacing: -0.015em;
   line-height: 1.2;
 }
@@ -99,7 +105,7 @@ svg {
   font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.012em;
-  line-height: 1.15;
+  line-height: 1.2;
 }
 
 .t-pay {
@@ -112,41 +118,50 @@ svg {
 }
 
 .t-body {
-  font-size: 15px;
-  line-height: 1.55;
+  font-size: 16px;
+  line-height: 1.5;
   color: var(--ink-soft);
+  text-wrap: pretty;
 }
 
 .t-meta {
   font-size: 13.5px;
-  line-height: 1.4;
+  line-height: 1.45;
   color: var(--muted);
 }
 
+/* Supplementary only — a hint beside a field, a footnote under a button.
+   Never a fact a student needs, because this grey does not reach 4.5:1. */
+.t-helper {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--helper);
+}
+
 .t-sub {
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 600;
   line-height: 1.4;
   color: var(--teal);
 }
 
-/* Machine-ish metadata only. Never below 10px, never above 12px. */
+/* The label treatment, used wherever the old system used mono. */
 .t-mono {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   line-height: 1.2;
 }
 
 .t-eyebrow {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: 400;
-  letter-spacing: 0.1em;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--teal);
 }
 
 /* --- Layout primitives. Siblings are spaced with gap, never margins. --- */

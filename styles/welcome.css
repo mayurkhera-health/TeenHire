@@ -1,25 +1,23 @@
 /* Screen 01 — Welcome / name capture.
  *
- * A separate design system from Citrus Teal Lead: warmer ground, a single
- * card, Figtree throughout, a heavier and softer elevation. Scoped to this
- * screen rather than applied at :root, because promoting it would restyle
- * every other screen and break three of the system's own rules — the single
- * elevation class, the three-family type stack, and the 10px mono badges that
- * "nothing below 13px" would outlaw. That promotion is a decision, not a
- * side effect of building one screen. */
+ * This screen's system is now the whole app's system, so its colours come
+ * from the shared tokens rather than being restated here. What stays local is
+ * only what is genuinely particular to this screen: the single centred card,
+ * the illustration band, and the heavier hero elevation that suits one card
+ * on an empty ground but not a feed of them. */
 
 .welcome {
-  --w-ink: #12332b;
-  --w-primary: #0e6a57;
-  --w-primary-dark: #12332b;
-  --w-mint: #e3efea;
-  --w-card: #fbfaf7;
-  --w-bg: #edebe5;
-  --w-body: #5c6b64;
-  --w-helper: #8a948e;
-  --w-border: #dde3df;
+  --w-ink: var(--ink);
+  --w-primary: var(--teal);
+  --w-primary-dark: var(--teal-press);
+  --w-mint: var(--teal-wash);
+  --w-card: var(--card);
+  --w-bg: var(--paper);
+  --w-body: var(--ink-soft);
+  --w-helper: var(--helper);
+  --w-border: var(--line);
   --w-placeholder: #9aa39d;
-  --w-focus: rgba(14, 106, 87, 0.12);
+  --w-focus: var(--focus-ring);
 
   min-height: 100svh;
   display: flex;
@@ -27,15 +25,15 @@
   justify-content: center;
   padding: 24px 16px;
   background: var(--w-bg);
-  font-family: var(--font-figtree), 'Figtree', Helvetica, sans-serif;
+  font-family: var(--font-body);
 }
 
 .welcome-card {
   width: 100%;
   max-width: 420px;
   background: var(--w-card);
-  border-radius: 28px;
-  box-shadow: 0 24px 60px rgba(18, 51, 43, 0.14);
+  border-radius: var(--r-card);
+  box-shadow: var(--lift);
   overflow: hidden;
 }
 
@@ -118,7 +116,7 @@
   padding: 16px 18px;
   background: #ffffff;
   border: 1.5px solid var(--w-border);
-  border-radius: 14px;
+  border-radius: var(--r-block);
   font-family: inherit;
   font-size: 17px;
   font-weight: 400;
@@ -149,7 +147,7 @@
   padding: 18px;
   min-height: 56px;
   border: none;
-  border-radius: 16px;
+  border-radius: var(--r-button);
   background: var(--w-primary);
   color: var(--w-card);
   font-family: inherit;

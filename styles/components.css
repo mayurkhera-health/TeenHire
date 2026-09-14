@@ -10,7 +10,7 @@
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: var(--r-card);
-  box-shadow: var(--lift);
+  box-shadow: var(--lift-list);
   text-align: left;
   width: 100%;
 }
@@ -129,17 +129,20 @@
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 9px;
+  gap: 5px;
+  padding: 6px 10px;
   border-radius: var(--r-badge);
   background: var(--type-bg);
   color: var(--type-ink);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.09em;
+  font-family: var(--font-display);
+  /* Was 10px mono. The new system's floor is 13px, so badges take the field
+     label treatment instead — same machine-ish read, one family. */
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
   white-space: nowrap;
+  line-height: 1.15;
 }
 
 .badge-verified {
@@ -157,12 +160,12 @@
   justify-content: center;
   gap: var(--s2);
   min-height: 44px;
-  padding: 9px 16px;
+  padding: 10px 18px;
   border-radius: var(--r-pill);
-  border: 1px solid var(--line);
-  background: var(--card);
+  border: 1.5px solid var(--line);
+  background: #ffffff;
   color: var(--ink);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 500;
   text-align: center;
   transition:
@@ -177,7 +180,7 @@
 .chip[data-selected='true'] {
   background: var(--teal);
   border-color: var(--teal);
-  color: #fff;
+  color: var(--card);
   font-weight: 700;
 }
 
@@ -223,12 +226,11 @@
   border-radius: var(--r-button);
   font-family: var(--font-display);
   font-size: 17px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
+  font-weight: 600;
   transition:
     transform var(--t-press) var(--ease),
     opacity var(--t-press) var(--ease),
-    background var(--t-select) var(--ease);
+    background var(--t-press) var(--ease);
 }
 
 .btn:active {
@@ -237,7 +239,12 @@
 
 .btn-primary {
   background: var(--teal);
-  color: #fff;
+  color: var(--card);
+}
+
+.btn-primary:hover,
+.btn-primary:active {
+  background: var(--teal-press);
 }
 
 /* On ink panels the primary turns orange so the action still leads. */
@@ -366,7 +373,7 @@
   gap: 5px;
   padding: 12px 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
 }
 
@@ -472,7 +479,7 @@
   position: fixed;
   inset: 0;
   z-index: 80;
-  background: rgba(12, 42, 38, 0.38);
+  background: rgba(18, 51, 43, 0.38);
   animation: fade var(--t-sheet) var(--ease);
 }
 
@@ -554,7 +561,7 @@
   padding: var(--s5);
   border-radius: var(--r-panel);
   background: var(--card);
-  border: 1px solid var(--line);
+  border: 1.5px solid var(--line);
 }
 
 .divider {
