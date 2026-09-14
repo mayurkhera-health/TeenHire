@@ -21,6 +21,27 @@
    to look like. */
 const HERO_PHOTO: string | null = null;
 
+/* The illustration band on Screen 01. Decorative, so it is hidden from
+   assistive technology entirely rather than described — the headline already
+   says what the screen is.
+
+   When no art is available the band keeps its height and shows a label, so
+   the CTA never moves between the two states. */
+export function WelcomeBand() {
+  if (HERO_PHOTO) {
+    return (
+      <div className="welcome-band">
+        <img src={HERO_PHOTO} alt="" />
+      </div>
+    );
+  }
+  return (
+    <div className="welcome-band">
+      <WelcomeHero band />
+    </div>
+  );
+}
+
 export function WelcomeArt() {
   if (HERO_PHOTO) {
     return (
@@ -34,21 +55,30 @@ export function WelcomeArt() {
   return <WelcomeHero />;
 }
 
-export function WelcomeHero() {
+export function WelcomeHero({ band = false }: { band?: boolean } = {}) {
+  /* In band form the art fills a full-bleed slot: no corner radius of its
+     own, and it crops rather than letterboxes so the mint never shows as
+     bars down the sides. */
   return (
     <svg
-      className="hero-art"
+      className={band ? undefined : 'hero-art'}
       viewBox="0 0 400 225"
-      role="img"
-      aria-label="A group of high-school students on their way to work, school and volunteering"
+      preserveAspectRatio={band ? 'xMidYMid slice' : undefined}
+      {...(band
+        ? { 'aria-hidden': true as const, focusable: false as const }
+        : {
+            role: 'img',
+            'aria-label':
+              'A group of high-school students on their way to work, school and volunteering',
+          })}
     >
       <defs>
-        <clipPath id="hero-frame">
-          <rect x="0" y="0" width="400" height="225" rx="22" />
+        <clipPath id={band ? 'hero-band' : 'hero-frame'}>
+          <rect x="0" y="0" width="400" height="225" rx={band ? 0 : 22} />
         </clipPath>
       </defs>
 
-      <g clipPath="url(#hero-frame)">
+      <g clipPath={`url(#${band ? 'hero-band' : 'hero-frame'})`}>
         <rect width="400" height="225" fill="#E7F3F1" />
 
         {/* Confetti. The only decorative marks anywhere in the product. */}

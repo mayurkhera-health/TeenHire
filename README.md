@@ -215,6 +215,24 @@ Real integration must also use each provider's own button assets and branding
 rules. The buttons here are plain text rather than an approximation of a
 trademark.
 
+## Screen 01 is on a different design system
+
+`styles/welcome.css`. The welcome screen was respecified with its own palette
+(warmer `#EDEBE5` ground, `#FBFAF7` card, `#0E6A57` primary), Figtree
+throughout, a 28px card radius and a much softer, heavier elevation. It is
+scoped to that screen rather than promoted to `:root`.
+
+That scoping is deliberate. Promoting it would restyle every other screen and
+break three of Citrus Teal Lead's own rules at once — one elevation per
+surface class, the three-family type stack, and the 10px mono badges that
+"nothing below 13px" would outlaw (9 call sites). Migrating the rest is a
+decision worth making on purpose; it is not a side effect of building one
+screen. Until it is made, screens 02 onward are unchanged and the app is
+visually split at the welcome screen.
+
+The name is optional here. An empty name proceeds and the feed greets with a
+generic hello, so there is no validation and no error state on this screen.
+
 ## The welcome illustration
 
 `components/WelcomeHero.tsx` is drawn rather than photographed. A photograph

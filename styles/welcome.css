@@ -1,0 +1,186 @@
+/* Screen 01 — Welcome / name capture.
+ *
+ * A separate design system from Citrus Teal Lead: warmer ground, a single
+ * card, Figtree throughout, a heavier and softer elevation. Scoped to this
+ * screen rather than applied at :root, because promoting it would restyle
+ * every other screen and break three of the system's own rules — the single
+ * elevation class, the three-family type stack, and the 10px mono badges that
+ * "nothing below 13px" would outlaw. That promotion is a decision, not a
+ * side effect of building one screen. */
+
+.welcome {
+  --w-ink: #12332b;
+  --w-primary: #0e6a57;
+  --w-primary-dark: #12332b;
+  --w-mint: #e3efea;
+  --w-card: #fbfaf7;
+  --w-bg: #edebe5;
+  --w-body: #5c6b64;
+  --w-helper: #8a948e;
+  --w-border: #dde3df;
+  --w-placeholder: #9aa39d;
+  --w-focus: rgba(14, 106, 87, 0.12);
+
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  background: var(--w-bg);
+  font-family: var(--font-figtree), 'Figtree', Helvetica, sans-serif;
+}
+
+.welcome-card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--w-card);
+  border-radius: 28px;
+  box-shadow: 0 24px 60px rgba(18, 51, 43, 0.14);
+  overflow: hidden;
+}
+
+/* Full-bleed. No inner radius — the card's own overflow does the clipping. */
+.welcome-band {
+  height: 260px;
+  background: var(--w-mint);
+  display: block;
+}
+
+.welcome-band > svg,
+.welcome-band > img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* The labelled placeholder for a missing illustration. The band keeps its
+   height either way, so the CTA never moves. */
+.welcome-band[data-placeholder='true'] {
+  display: grid;
+  place-items: center;
+  color: var(--w-primary);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.welcome-content {
+  padding: 28px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.welcome-text {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.welcome-headline {
+  margin: 0;
+  font-size: 38px;
+  line-height: 1.04;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--w-ink);
+  text-wrap: balance;
+}
+
+.welcome-subhead {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.5;
+  font-weight: 400;
+  color: var(--w-body);
+  text-wrap: pretty;
+}
+
+.welcome-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.welcome-label {
+  font-size: 13px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--w-primary);
+}
+
+.welcome-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 16px 18px;
+  background: #ffffff;
+  border: 1.5px solid var(--w-border);
+  border-radius: 14px;
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 400;
+  color: var(--w-ink);
+  transition: border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.welcome-input::placeholder {
+  color: var(--w-placeholder);
+}
+
+/* The outline is replaced, not removed. */
+.welcome-input:focus {
+  outline: none;
+  border-color: var(--w-primary);
+  box-shadow: 0 0 0 3px var(--w-focus);
+}
+
+.welcome-helper {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--w-helper);
+}
+
+.welcome-cta {
+  width: 100%;
+  padding: 18px;
+  min-height: 56px;
+  border: none;
+  border-radius: 16px;
+  background: var(--w-primary);
+  color: var(--w-card);
+  font-family: inherit;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 140ms ease;
+}
+
+.welcome-cta:hover,
+.welcome-cta:active {
+  background: var(--w-primary-dark);
+}
+
+.welcome-cta:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--w-focus), 0 0 0 1.5px var(--w-primary);
+}
+
+.welcome-reassurance {
+  margin: 0;
+  text-align: center;
+  font-size: 13px;
+  color: var(--w-helper);
+}
+
+/* Below 420px the card fills the width minus the 16px gutters. No fixed
+   heights on anything holding text; only the band has one, and it gives way
+   when the viewport is short. */
+@media (max-height: 700px) {
+  .welcome-band {
+    height: 200px;
+  }
+}

@@ -1,10 +1,11 @@
 import type { Metadata, Viewport } from 'next';
-import { Bricolage_Grotesque, Plus_Jakarta_Sans, Space_Mono } from 'next/font/google';
+import { Bricolage_Grotesque, Figtree, Plus_Jakarta_Sans, Space_Mono } from 'next/font/google';
 import { AppProvider } from '@/lib/store';
 import '@/styles/tokens.css';
 import '@/styles/base.css';
 import '@/styles/components.css';
 import '@/styles/screens.css';
+import '@/styles/welcome.css';
 
 /* Bricolage for anything a student reads first, Jakarta for anything that
    explains, Space Mono for machine-ish metadata and nothing else. */
@@ -20,6 +21,15 @@ const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   weight: ['400', '500', '600', '700'],
   variable: '--font-jakarta',
+  display: 'swap',
+});
+
+/* Screen 01 is specified in Figtree. The rest of the app is still on
+   Bricolage + Jakarta, so both ship until that migration is decided. */
+const figtree = Figtree({
+  subsets: ['latin'],
+  weight: ['400', '600', '800'],
+  variable: '--font-figtree',
   display: 'swap',
 });
 
@@ -46,7 +56,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={`${bricolage.variable} ${jakarta.variable} ${spaceMono.variable}`}>
+    <html lang="en" className={`${bricolage.variable} ${jakarta.variable} ${spaceMono.variable} ${figtree.variable}`}>
       <body>
         <AppProvider>{children}</AppProvider>
       </body>
