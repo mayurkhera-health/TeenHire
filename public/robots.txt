@@ -1,0 +1,5 @@
+# This deployment carries invented organizations and fake listings. Nothing
+# here should be indexed as a real opportunity, so nothing here is indexed.
+# Remove this file — or narrow it to the routes you mean — at launch.
+User-agent: *
+Disallow: /
