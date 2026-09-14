@@ -18,12 +18,30 @@ export default function EmployerSignup() {
   const [website, setWebsite] = useState('');
   const [contactName, setContactName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [city, setCity] = useState('');
+  const [zip, setZip] = useState('');
 
-  const ready = kind !== null && name.trim() !== '' && contactName.trim() !== '' && email.includes('@');
+  const ready =
+    kind !== null &&
+    name.trim() !== '' &&
+    contactName.trim() !== '' &&
+    email.includes('@') &&
+    city.trim() !== '' &&
+    /^\d{5}$/.test(zip.trim());
 
   const submit = () => {
     if (!ready) return;
-    setEmployerOrg({ kind, name: name.trim(), website: website.trim(), contactName: contactName.trim(), email: email.trim() });
+    setEmployerOrg({
+      kind,
+      name: name.trim(),
+      website: website.trim(),
+      contactName: contactName.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      city: city.trim(),
+      zip: zip.trim(),
+    });
     router.replace('/employer');
   };
 
@@ -63,11 +81,14 @@ export default function EmployerSignup() {
           <Field id="org-site" label="Website (optional)" value={website} onChange={setWebsite} placeholder="citrusgrove.example" />
           <Field id="your-name" label="Your name" value={contactName} onChange={setContactName} placeholder="Sam Ortega" />
           <Field id="your-email" label="Work email" value={email} onChange={setEmail} placeholder="sam@citrusgrove.example" type="email" />
+          <Field id="your-phone" label="Phone (optional)" value={phone} onChange={setPhone} placeholder="(408) 555-0142" type="tel" />
+          <Field id="org-city" label="Where students would work" value={city} onChange={setCity} placeholder="Santa Clara" />
+          <Field id="org-zip" label="ZIP code" value={zip} onChange={(v) => setZip(v.replace(/\D/g, '').slice(0, 5))} placeholder="95050" />
         </div>
 
         <p className="t-meta">
-          We check every organization by hand before anything goes live. Students only see verified
-          places.
+          We check every organization by hand before anything goes live — the address, the website
+          and that you are really who you say you are. Students only ever see verified places.
         </p>
       </main>
 

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Cake, Clock, Heart, Pin, Spark } from './Icons';
+import { Cake, Clock, Dash, Heart, Pin, Spark, Tick } from './Icons';
 import { LogoTile, TypeBadge } from './ui';
 import { MoneyBlock } from './MoneyBlock';
 import { EXPERIENCE_LABEL, timingPhrase } from '@/lib/copy';
@@ -62,6 +62,14 @@ export function OpportunityCard({ item }: { item: Ranked }) {
           {timingPhrase(opportunity.timing)}
         </span>
       </div>
+
+      {/* A card in the feed is always eligible, but a saved one may have
+          stopped being so — the card says which rather than leaving a student
+          to work it out from a screen they reached three days ago. */}
+      <p className="meta-item" style={{ color: fit.eligible ? 'var(--teal)' : 'var(--warn)' }}>
+        {fit.eligible ? <Tick size={15} /> : <Dash size={15} />}
+        {fit.eligible ? 'You can apply' : fit.blocker}
+      </p>
 
       <p className="t-body">{opportunity.reassurance}</p>
 

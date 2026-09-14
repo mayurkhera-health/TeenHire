@@ -84,6 +84,21 @@ export default function ApplicantsPage({ params }: { params: Promise<{ id: strin
                   </span>
                 </div>
 
+                {student.thingsDone.length > 0 ? (
+                  <div className="stack gap-2">
+                    <span className="t-mono" style={{ color: 'var(--muted)' }}>
+                      Things they&rsquo;ve done
+                    </span>
+                    <div className="chip-wrap">
+                      {student.thingsDone.map((thing) => (
+                        <span key={thing} className="badge type-paid">
+                          {thing}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
                 {student.interests.length > 0 ? (
                   <p className="t-meta">
                     Interests: {student.interests.map((i) => INTEREST_LABEL[i]).join(' · ')}
@@ -116,7 +131,7 @@ export default function ApplicantsPage({ params }: { params: Promise<{ id: strin
                       className="btn btn-secondary"
                       onClick={() => decideApplicant(student.id, 'not_a_match')}
                     >
-                      Not a match
+                      Not this time
                     </button>
                   </div>
                 )}

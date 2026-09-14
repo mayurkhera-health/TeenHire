@@ -38,6 +38,15 @@ export type Interest =
 
 export type OrganizationKind = 'business' | 'nonprofit';
 
+/* Verification is a lifecycle, not a flag: an organization can be rejected or
+   suspended after approval, and a student must never see either. */
+export type VerificationStatus =
+  | 'UNVERIFIED'
+  | 'PENDING'
+  | 'VERIFIED'
+  | 'REJECTED'
+  | 'SUSPENDED';
+
 export type OpportunityStatus =
   | 'DRAFT'
   | 'PENDING_REVIEW'
@@ -73,12 +82,17 @@ export interface Organization {
   id: string;
   name: string;
   kind: OrganizationKind;
-  /* Verification is a gate, not a decoration: nothing publishes without it,
-     and a volunteer posting from a business needs an admin override. */
-  verified: boolean;
+  /* A gate, not a decoration: nothing reaches a student without it, and a
+     volunteer posting from a business needs an admin override on top. */
+  verificationStatus: VerificationStatus;
   website?: string;
+  phone?: string;
   about: string;
   location: Location;
+}
+
+export function isVerified(organization: Organization): boolean {
+  return organization.verificationStatus === 'VERIFIED';
 }
 
 /* One shape per type so a paid job can never be published without pay and a
@@ -151,6 +165,8 @@ export interface InterestedStudent {
   availability: Timing[];
   interests: Interest[];
   experience: 'First job' | 'Some experience';
+  /* Plain things a teenager has actually done. Never called experience. */
+  thingsDone: string[];
   note?: string;
   decision?: 'interested' | 'not_a_match';
 }

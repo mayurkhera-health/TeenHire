@@ -2,12 +2,12 @@
 
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { use } from 'react';
+import { use, useState } from 'react';
 import { BackButton, LoadingScreen, RequireProfile } from '@/components/Shell';
 import { EligibilityPanel } from '@/components/EligibilityPanel';
 import { MoneyBlock } from '@/components/MoneyBlock';
 import { Cake, Clock, Heart, Pin, Spark } from '@/components/Icons';
-import { StripedFill, TypeBadge, VerifiedBadge } from '@/components/ui';
+import { Sheet, StripedFill, TypeBadge, VerifiedBadge } from '@/components/ui';
 import {
   COMMITMENT_LABEL,
   EXPERIENCE_LABEL,
@@ -16,7 +16,8 @@ import {
   timingPhrase,
 } from '@/lib/copy';
 import { formatDistance } from '@/lib/geo';
-import { evaluateFit } from '@/lib/matching';
+import { isVerified } from '@/lib/types';
+import { countEligibleAlternatives, evaluateFit } from '@/lib/matching';
 import { useApp } from '@/lib/store';
 
 /* Relevance before detail. Everything a student needs to decide sits above
@@ -34,6 +35,7 @@ export default function OpportunityPage({ params }: { params: Promise<{ id: stri
 
 function Detail({ id }: { id: string }) {
   const { profile, opportunities, organizations, isSaved, toggleSaved, applicationFor } = useApp();
+  const [trustOpen, setTrustOpen] = useState(false);
 
   const opportunity = opportunities.find((o) => o.id === id);
   if (!opportunity) notFound();
@@ -59,7 +61,11 @@ function Detail({ id }: { id: string }) {
         <div className="stack gap-3">
           <div className="meta-row">
             <TypeBadge type={opportunity.type} />
-            {organization.verified ? <VerifiedBadge /> : null}
+            {isVerified(organization) ? (
+              <button type="button" className="tap" onClick={() => setTrustOpen(true)}>
+                <VerifiedBadge />
+              </button>
+            ) : null}
           </div>
           <h1 className="t-display" style={{ fontSize: 30 }}>
             {opportunity.title}
@@ -92,6 +98,8 @@ function Detail({ id }: { id: string }) {
         </div>
 
         <EligibilityPanel fit={fit} />
+
+        {!fit.eligible ? <Alternatives opportunityId={opportunity.id} /> : null}
 
         <Section title="What you'll do">
           <div className="bullets">
@@ -153,6 +161,23 @@ function Detail({ id }: { id: string }) {
         </Section>
       </main>
 
+      <Sheet open={trustOpen} title="Verified organization" onClose={() => setTrustOpen(false)}>
+        <p className="t-body">
+          We&rsquo;ve confirmed this is a real organization — the business exists, the address is
+          real, and a named person there is responsible for this posting.
+        </p>
+        {/* Saying what the badge does not cover matters more than what it does.
+            A student should not read it as us vouching for the workplace. */}
+        <p className="t-body">
+          It doesn&rsquo;t mean we&rsquo;ve checked the pay, the hours, or what it&rsquo;s like to
+          work there. Tell a parent or guardian where you&rsquo;re going, and tell us if anything
+          feels wrong.
+        </p>
+        <button type="button" className="btn btn-primary btn-block" onClick={() => setTrustOpen(false)}>
+          Got it
+        </button>
+      </Sheet>
+
       <div className="sticky-cta" data-inline-on-pointer="true">
         {!fit.eligible && !application ? (
           <Link href={`/interest/${opportunity.id}`} className="btn btn-tertiary">
@@ -193,6 +218,34 @@ function Detail({ id }: { id: string }) {
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/* §10: never a disabled button and nothing else. A student who cannot do this
+   one is told plainly why, then handed the count of what they can do — which
+   is a real number from the same rules the feed runs, not a guess. */
+function Alternatives({ opportunityId }: { opportunityId: string }) {
+  const { profile, opportunities, organizations } = useApp();
+  if (!profile) return null;
+
+  const count = countEligibleAlternatives(
+    { opportunities, organizations, student: profile },
+    opportunityId,
+  );
+  if (count === 0) return null;
+
+  return (
+    <div className="panel-ink">
+      <h2 className="t-section" style={{ color: '#fff' }}>
+        We found {count} you can do
+      </h2>
+      <p className="t-body">
+        All of them are near you, and you are old enough for every one.
+      </p>
+      <Link href="/discover" className="btn btn-yellow">
+        Show me those
+      </Link>
     </div>
   );
 }

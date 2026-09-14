@@ -61,6 +61,11 @@ export interface EmployerOrg {
   website: string;
   contactName: string;
   email: string;
+  /* §34 asks for these because they are what a human reviewer actually
+     checks. A posting with no address and no phone cannot be verified. */
+  phone: string;
+  city: string;
+  zip: string;
 }
 
 interface PersistedState {

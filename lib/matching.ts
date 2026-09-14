@@ -1,4 +1,5 @@
 import { distanceMiles } from './geo';
+import { isVerified } from './types';
 import type {
   Opportunity,
   Organization,
@@ -159,7 +160,7 @@ export function matchFeed({
   for (const opportunity of opportunities) {
     if (opportunity.status !== 'PUBLISHED') continue;
     const organization = orgById.get(opportunity.organizationId);
-    if (!organization || !organization.verified) continue;
+    if (!organization || !isVerified(organization)) continue;
 
     const fit = evaluateFit(opportunity, organization, student);
     if (student.age < opportunity.minimumAge) continue;
@@ -181,9 +182,33 @@ export function countBeyondRadius(
   return opportunities.filter((opportunity) => {
     if (opportunity.status !== 'PUBLISHED') return false;
     const organization = orgById.get(opportunity.organizationId);
-    if (!organization?.verified) return false;
+    if (!organization || !isVerified(organization)) return false;
     if (student.age < opportunity.minimumAge) return false;
     const d = distanceMiles(student.searchLocation, organization.location);
     return d > student.radiusMiles && d <= radius;
   }).length;
+}
+
+/* A student who lands on something they cannot do — usually through a link a
+   friend sent — is at a dead end. Counting what they CAN do turns that into
+   the most useful screen in the product, so the count has to be real: it runs
+   the same rules the feed does, not an estimate. */
+export function countEligibleAlternatives(
+  { opportunities, organizations, student }: MatchInput,
+  excludeId: string,
+): number {
+  return matchFeed({ opportunities, organizations, student }).filter(
+    (r) => r.opportunity.id !== excludeId,
+  ).length;
+}
+
+/* The same, narrowed to opportunities that look like the one they wanted —
+   same type first, because someone who clicked a paid job wants a paid job. */
+export function similarEligible(
+  input: MatchInput,
+  opportunity: Opportunity,
+): Ranked[] {
+  const feed = matchFeed(input).filter((r) => r.opportunity.id !== opportunity.id);
+  const sameType = feed.filter((r) => r.opportunity.type === opportunity.type);
+  return sameType.length >= 2 ? sameType : feed;
 }

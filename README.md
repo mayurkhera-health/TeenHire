@@ -214,6 +214,38 @@ pins both properties.
 Widening from the greeting writes to the student's profile rather than to
 component state, so the change survives a reload.
 
+## Opportunities coming to students
+
+`lib/notifications.ts`. Differentiator #5 is that a student does not have to
+open a search box — publishing an opportunity raises a matching event and the
+students it fits hear about it.
+
+Delivery (email, SMS, later push) is backend. What is built is the part that
+decides *who* hears about *what*, and in what words, kept deliberately apart
+from opportunity and application logic. `matchingEvent` runs the same rules
+the feed runs, so a student can never be messaged about something the app
+would then refuse to show them — too young, out of range, or from an
+organization still in review all produce silence.
+
+Tests pin the two properties most likely to break quietly: every composed
+message fits one 160-character SMS segment, and no message ever contains the
+student's name, ZIP or search coordinates. The organization never receives
+the matched audience — the event returns notifications, not a list of minors.
+
+## Acceptance measurements
+
+§47 sets UX targets. Measured against the running build at 390×844:
+
+| Target | Measured |
+| --- | --- |
+| Useful opportunities within ~60s of first visit | 10 taps, no typing beyond a name and a ZIP |
+| Express interest in under ~30s | 4 taps |
+| Employer posts in under ~2 min | 12 taps |
+| Age, distance, schedule, pay, experience understood without scrolling | all 8 facts of §44 above the fold, eligibility panel at 622px of 844 |
+
+The tap counts are the honest figure; wall-clock timings from a script say
+more about the machine than about a student.
+
 ## Reach, and why it shows no number
 
 `lib/reach.ts`. The posting flow's last step is where an employer decides
@@ -235,8 +267,12 @@ boundaries (`lib/matching.ts`, `lib/geo.ts`, `lib/store.tsx`) are drawn where
 the FastAPI + PostGIS service would slot in, so that becomes a change of data
 source rather than a change of screens.
 
-Also out of V1 by design: messaging, notifications delivery, the admin console,
-payments, and any student profile shaped like a résumé.
+Also out of V1 by design: messaging, notification *delivery*, the admin
+console, payments, verified volunteer hours, and any student profile shaped
+like a résumé. Voice, paste and URL posting are not built either, but every
+creation route already funnels through one draft and one `draftToOpportunity`
+(`lib/opportunityDraft.ts`), so adding one cannot grow a second opportunity
+model behind it.
 
 Nothing in the UI shows a number the data cannot support. If you add one, make
 it survive the question an employer or a student would ask of it: where did

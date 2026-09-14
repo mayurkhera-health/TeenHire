@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { Suspense, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { LoadingScreen } from '@/components/Shell';
 import { Plus } from '@/components/Icons';
 import { LogoTile, TypeBadge } from '@/components/ui';
@@ -44,6 +44,10 @@ export default function EmployerHome() {
           <span className="t-eyebrow">{employerOrg.name}</span>
           <h1 className="t-greeting">Your opportunities</h1>
         </header>
+
+        <Suspense fallback={null}>
+          <JustPosted />
+        </Suspense>
 
         <div className="console-grid">
           <nav className="stack gap-2" aria-label="Console">
@@ -115,6 +119,26 @@ export default function EmployerHome() {
           Post Opportunity
         </Link>
       </div>
+    </div>
+  );
+}
+
+/* §30 wants a confirmation that gives the employer immediate value. It says
+   "You're live" — which would be a lie here, because this organization has
+   not been verified yet and its posting is queued behind that. The screen
+   says what actually happened instead, and says when it changes. */
+function JustPosted() {
+  const params = useSearchParams();
+  if (params.get('posted') !== '1') return null;
+
+  return (
+    <div className="fit">
+      <h2 className="fit-heading">Sent for review</h2>
+      <p className="fit-line">
+        We check new organizations by hand, usually the same day. The moment you are verified this
+        goes live and students nearby start seeing it.
+      </p>
+      <p className="fit-line">You will get an email either way.</p>
     </div>
   );
 }

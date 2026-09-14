@@ -15,6 +15,11 @@ import {
 } from '@/lib/copy';
 import { DEFAULT_LOCATION } from '@/lib/geo';
 import { agesExcluded, reachFor, type Reach } from '@/lib/reach';
+import {
+  compensationFrom,
+  draftToOpportunity,
+  type OpportunityDraft,
+} from '@/lib/opportunityDraft';
 import { useApp } from '@/lib/store';
 import type {
   Compensation,
@@ -265,8 +270,7 @@ function PayStep() {
   const { employerOrg, publishOpportunity } = useApp();
   const router = useRouter();
 
-  const compensation = buildCompensation(draft);
-  const complete = compensation !== null;
+  const compensation = compensationFrom(draft);
 
   const reach = draft.minimumAge
     ? reachFor({ city: DEFAULT_LOCATION.city, minimumAge: draft.minimumAge })
@@ -277,36 +281,32 @@ function PayStep() {
       id: 'org-preview',
       name: employerOrg?.name ?? 'Your organization',
       kind: employerOrg?.kind ?? 'business',
-      verified: true,
+      verificationStatus: 'VERIFIED',
       about: 'Your organization',
       location: DEFAULT_LOCATION,
     }),
     [employerOrg],
   );
 
+  /* The form builds the same draft a voice or pasted posting would, and the
+     same function turns it into the Opportunity. Nothing downstream knows
+     which route it came from. */
   const previewOpportunity = useMemo<Opportunity | null>(() => {
-    if (!complete || !draft.type || !draft.minimumAge || !draft.experience) return null;
-    return {
-      id: `opp-draft-${Date.now()}`,
-      organizationId: previewOrganization.id,
-      title: draft.title.trim(),
+    const shared: OpportunityDraft = {
+      source: 'form',
       type: draft.type,
-      /* New postings are never live on submit. They queue for review. */
-      status: 'PENDING_REVIEW',
+      title: draft.title,
+      summary: draft.summary,
       minimumAge: draft.minimumAge,
       experience: draft.experience,
       timing: draft.timing,
-      hours: draft.hours ?? undefined,
+      hours: draft.hours,
       compensation,
-      summary: draft.summary.trim(),
-      reassurance: draft.summary.trim() || reassuranceFor(draft.experience),
-      responsibilities: draft.summary.trim() ? [draft.summary.trim()] : [],
-      schedule: draft.timing.map((t) => TIMING_LABEL[t]).join(', '),
-      goodToKnow: [],
-      interests: [],
-      publishedAt: new Date().toISOString(),
     };
-  }, [complete, draft, compensation, previewOrganization.id]);
+    const built = draftToOpportunity(shared, previewOrganization.id, 'PENDING');
+    if (!built) return null;
+    return { ...built, schedule: draft.timing.map((t) => TIMING_LABEL[t]).join(', ') };
+  }, [draft, compensation, previewOrganization.id]);
 
   const post = () => {
     if (!previewOpportunity) return;
@@ -457,35 +457,7 @@ function commitmentLabel(commitment: VolunteerCommitment): string {
   return { one_time: 'One time', weekly: 'Weekly', monthly: 'Monthly', flexible: 'Flexible' }[commitment];
 }
 
-function reassuranceFor(experience: Experience): string {
-  return experience === 'none'
-    ? 'No experience needed — training provided.'
-    : 'Some experience helps, but they will show you the rest.';
-}
-
 function needsHourly(draft: PostDraft): boolean {
   return draft.type === 'paid' || (draft.type === 'internship' && draft.internshipPay === 'paid');
 }
 
-function buildCompensation(draft: PostDraft): Compensation | null {
-  if (!draft.type || !draft.title.trim() || !draft.minimumAge || !draft.experience || draft.timing.length === 0) {
-    return null;
-  }
-
-  if (draft.type === 'volunteer') {
-    return draft.commitment ? { kind: 'commitment', commitment: draft.commitment } : null;
-  }
-
-  if (draft.type === 'internship') {
-    if (draft.internshipPay === 'unpaid') return { kind: 'unpaid' };
-    if (draft.internshipPay === 'stipend') {
-      const amount = Number(draft.stipend);
-      return amount > 0 ? { kind: 'stipend', amount, per: 'total' } : null;
-    }
-  }
-
-  const min = Number(draft.payMin);
-  if (!(min > 0)) return null;
-  const max = Number(draft.payMax);
-  return max > min ? { kind: 'hourly', min, max } : { kind: 'hourly', min };
-}

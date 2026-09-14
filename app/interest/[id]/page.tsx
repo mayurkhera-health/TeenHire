@@ -5,6 +5,7 @@ import { use, useState } from 'react';
 import { BackButton, LoadingScreen, RequireProfile } from '@/components/Shell';
 import { Tick } from '@/components/Icons';
 import { Tile, TypeBadge } from '@/components/ui';
+import { TIMING_LABEL, listPhrase } from '@/lib/copy';
 import { useApp } from '@/lib/store';
 
 /* Not "Apply Now". A student is telling an organization they are interested,
@@ -38,6 +39,18 @@ function Interest({ id }: { id: string }) {
   /* Progressive profiling: the one thing worth knowing is asked here, at the
      moment it becomes useful, and "Not yet" is an equally good answer. */
   const answeredExperience = profile.hasSimilarExperience !== undefined;
+
+  const availability =
+    profile.availability.length > 0
+      ? profile.availability.map((t) => TIMING_LABEL[t].toLowerCase()).join(' and ')
+      : 'when it suits you';
+
+  const background =
+    profile.thingsDone.length > 0
+      ? `You've done: ${listPhrase(profile.thingsDone).toLowerCase()}`
+      : profile.hasSimilarExperience
+        ? "You've done something like this before"
+        : 'This would be a first — which is fine here';
 
   const send = () => {
     expressInterest(opportunity.id, note.trim() || undefined);
@@ -144,10 +157,30 @@ function Interest({ id }: { id: string }) {
           </div>
         ) : null}
 
-        <p className="t-meta">
-          They will see: {profile.name}, {profile.age}, {profile.searchLocation.city}, roughly how
-          far away you are, and when you are free.
-        </p>
+        {/* §14: the student sees exactly what travels, before it travels.
+            Four lines, all of them things they already told us. */}
+        <section className="fit">
+          <h2 className="fit-heading">Ready to send?</h2>
+          <p className="fit-line">
+            <Tick size={16} />
+            {profile.name}, {profile.age}
+          </p>
+          <p className="fit-line">
+            <Tick size={16} />
+            Old enough for this one
+          </p>
+          <p className="fit-line">
+            <Tick size={16} />
+            Free {availability}
+          </p>
+          <p className="fit-line">
+            <Tick size={16} />
+            {background}
+          </p>
+          <p className="fit-line" style={{ opacity: 0.8 }}>
+            Not sent: your address, your birthday or where exactly you searched from.
+          </p>
+        </section>
       </main>
 
       <div className="sticky-cta">
