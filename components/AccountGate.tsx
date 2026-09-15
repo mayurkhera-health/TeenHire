@@ -222,8 +222,9 @@ export function AccountGate({
         {error ? <p className="t-meta" role="alert" style={{ color: 'var(--warn)' }}>{error}</p> : null}
       </div>
 
-      {/* Delivery arrives in Phase 4. Until then a developer can ask the server
-          to hand the code back; in production it never leaves the server. */}
+      {/* Only rendered when AUTH_DEV_CODES is set and the build is not a
+          production one, which is also why the journey test runs against a dev
+          server: a production build has no way in and should have none. */}
       {devCode ? (
         <div className="fit" data-eligible="false">
           <h2 className="fit-heading">Development only</h2>

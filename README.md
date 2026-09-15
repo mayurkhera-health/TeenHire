@@ -61,8 +61,11 @@ arrives, so it reads as a hang rather than as a refusal. The private ranges a
 home or office network hands out are listed there already; an unusual one has
 to be added.
 
-No database and no API keys. Everything runs from seeded data and the
-student's own device.
+Local development needs the database above and `AUTH_SECRET`; `.env.example`
+lists the rest and says what breaks without each. `AUTH_DEV_CODES=1` puts the
+one-time sign-in code on screen so you can sign in without a mail provider
+configured — it is gated on `NODE_ENV` as well, so a production build ignores
+it.
 
 ---
 
@@ -206,27 +209,99 @@ Verified in a real browser at 320px, 390px and 900px:
 
 ## Deploying
 
-The app is a Next.js server with no database, no environment variables and no
-secrets, so anywhere that runs Node will host it.
+The app is a Next.js server, a Postgres database with PostGIS, and a worker
+that drains the notification queue. It needs secrets. An earlier version of
+this section said it needed none of that, which was true before the backend
+existed and would now produce a deploy that starts and fails on its first
+query.
 
-**Fly.io** — `Dockerfile` and `fly.toml` are in the repo:
+### What it needs
+
+| Variable | Required | What happens without it |
+| --- | --- | --- |
+| `DATABASE_URL` | yes | Nothing works; every query fails. |
+| `AUTH_SECRET` | yes | The app refuses to start in production. |
+| `APP_URL` | yes | Links in emails are relative, so nobody can open them — including the unsubscribe link. |
+| `NOTIFY_PROVIDER` | yes | Refuses to start in production rather than log messages nobody reads. `resend`, or `none` to run deliberately without notifications. |
+| `RESEND_API_KEY` | with `resend` | Startup fails naming this variable. |
+| `NOTIFY_FROM` | with `resend` | Startup fails naming this variable. |
+| `NOTIFY_WORKER_SECRET` | for sending | `/api/notify/drain` refuses everything, so the queue fills and nothing is sent. |
+| `ADMIN_CONTACTS` | in practice | Nobody can verify an organization, so no posting ever reaches a student. |
+| `NOTIFY_REPLY_TO` | no | Replies go nowhere useful. |
+| `AUTH_DEV_CODES` | **never in production** | Ignored there anyway — it is gated on `NODE_ENV` as well — but do not set it. |
+
+### Fly.io
+
+`Dockerfile` and `fly.toml` are in the repo.
 
 ```bash
 fly launch --no-deploy   # decline when it offers to overwrite either file
+fly postgres create      # or bring your own; PostGIS is required
+
+fly secrets set \
+  DATABASE_URL="postgres://..." \
+  AUTH_SECRET="$(openssl rand -base64 32)" \
+  NOTIFY_WORKER_SECRET="$(openssl rand -base64 32)" \
+  APP_URL="https://teenhire.fly.dev" \
+  NOTIFY_PROVIDER="resend" \
+  RESEND_API_KEY="re_..." \
+  NOTIFY_FROM="TeenHire <notifications@mail.teenhire.com>" \
+  ADMIN_CONTACTS="you@example.com"
+
 fly deploy
 ```
+
+`fly.toml` runs `node scripts/migrate.mjs` as its release command, so the
+schema is applied before the new version takes traffic and a failed migration
+stops the deploy with the old version still serving. The runner records what
+it has applied and does nothing on a second run.
+
+**A database that predates that runner** — one migrated by hand with `psql` —
+has the tables but none of the records, so the first deploy would try to
+create them again. Run `node scripts/migrate.mjs --baseline` against it once.
+It is a flag rather than a guess on purpose: "the tables look like they are
+there, so I will assume the rest" is how a half-migrated database silently
+skips a migration.
+
+**Two processes**, because they fail differently:
+
+- `app` serves the site and can be suspended between visits — state lives in
+  Postgres, not in the machine.
+- `worker` runs `scripts/drain.mjs 30`, which asks the app to drain its queue
+  every thirty seconds. It stays up, which is the one thing here that costs
+  money whether or not anyone uses the product. Swap it for an external cron
+  hitting `POST /api/notify/drain` if that matters more than having no
+  dependencies.
+
+A timer inside the web process would have been simpler and is wrong: it sends
+nothing while it is being deployed, and everything twice whenever two
+instances are running.
 
 The Dockerfile exists rather than being generated because `output: 'standalone'`
 emits the server without `.next/static`. A generated Dockerfile that misses
 that copy step deploys a site that renders with no CSS and no obvious cause.
+It also copies `db/migrations` and the two `.mjs` scripts, which are plain
+JavaScript needing only `pg` — already in the standalone trace — so there is
+no `psql` and no second `node_modules` in the runtime image.
 
-`fly.toml` suspends the machine when idle and resumes on the next request,
-which is appropriate for something holding no server-side state. Set
-`min_machines_running = 1` if a pause on the first visit would spoil a demo.
+### The sending domain
 
-Nothing about the app requires a container — it is entirely client-side today,
-so a static host serves it just as well and more cheaply. The container is
-worth it once the FastAPI service lands and both halves want the same home.
+Resend proves you control a domain through DNS records, so a `gmail.com`
+address cannot be a sender: Google owns that domain and you cannot add records
+to it. Nor should it be — a fifteen-year-old receiving job mail from an
+individual's personal address is the exact shape of message online-safety
+advice tells them to distrust.
+
+Send from a subdomain you control (`mail.teenhire.com`), which leaves the root
+domain's reputation intact if notification mail is ever spam-flagged, and does
+not disturb Gmail or Workspace on the same domain — inbound is `MX` on the
+root, sending is `SPF`/`DKIM` on the subdomain.
+
+Before the domain exists, `NOTIFY_FROM="TeenHire <onboarding@resend.dev>"`
+needs no DNS and delivers only to the address on your Resend account. Point
+`NOTIFY_REPLY_TO` at whatever inbox you actually read. That pair is a fine way
+to see real mail during a pilot and is not a launch configuration — no student
+can receive anything.
 
 ## The admin console
 
@@ -582,18 +657,51 @@ in for is written out in the file.
 
 ## Not built
 
-No backend. Matching, distance and eligibility run client-side over seeded
-data; profile, saves and interests live in `localStorage`. The module
-boundaries (`lib/matching.ts`, `lib/geo.ts`, `lib/store.tsx`) are drawn where
-the FastAPI + PostGIS service would slot in, so that becomes a change of data
-source rather than a change of screens.
+Every line of this section used to describe a product with no backend, where
+profile and interests lived in `localStorage` and the admin console was out of
+scope. All of that shipped. Anyone who read it formed a false model of the
+system, which is its own kind of bug.
 
-Also out of V1 by design: messaging, notification *delivery*, the admin
-console, payments, verified volunteer hours, and any student profile shaped
-like a résumé. Voice, paste and URL posting are not built either, but every
-creation route already funnels through one draft and one `draftToOpportunity`
-(`lib/opportunityDraft.ts`), so adding one cannot grow a second opportunity
-model behind it.
+What is genuinely missing:
+
+**The contact handoff.** This is the one that blocks a launch. An employer
+presses "I'd like to connect", the student's Activity screen says "check your
+email for the next step", the email says the same — and no message anywhere
+contains a way for either of them to reach the other. The loop that the rest
+of this product exists to close terminates here. It is unbuilt rather than
+half-built because it needs a decision first: whether the employer gets the
+student's address, whether the student gets the employer's, and whether a
+parent sees it before either. For a product serving minors that is the most
+consequential design choice in it, and it is not one to make in passing.
+
+**A written verification standard.** An admin can verify an organization; what
+qualifies one is currently a person's judgement, unrecorded. Two admins would
+already disagree, and there is nothing to point at when a rejected business
+asks why.
+
+**SMS.** Composition treats "right away" as a text and the only sender is
+email, so those students get email instead — a deliberate degradation, but the
+setting's label overpromises until it exists. US texting needs 10DLC carrier
+registration, which is measured in weeks and worth starting before it becomes
+the thing holding up a launch.
+
+**Digests.** `summaryFor` composes them; nothing schedules them.
+
+**An employer notification when a student applies.** They see it on their
+dashboard next time they look.
+
+**Messaging, payments, verified volunteer hours, and any student profile
+shaped like a résumé.** Out by design, not by omission.
+
+**Voice, paste and URL posting.** Every creation route already funnels through
+one draft and one `draftToOpportunity` (`lib/opportunityDraft.ts`), so adding
+one cannot grow a second opportunity model behind it.
+
+And the thing no amount of code closes: **nobody under eighteen has used
+this.** The journey test proves the loop works mechanically. It cannot tell
+you whether a sixteen-year-old understands the interest screen, whether "Went
+another way" lands the way it was meant to, or whether an employer trusts a
+first-name-only applicant enough to reply.
 
 Nothing in the UI shows a number the data cannot support. If you add one, make
 it survive the question an employer or a student would ask of it: where did

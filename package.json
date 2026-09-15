@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:lan": "next dev -H 0.0.0.0",
-    "db:migrate": "for f in db/migrations/*.sql; do psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f \"$f\" || exit 1; done",
+    "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "tsx db/seed.ts",
     "build": "next build",
     "start": "next start",
@@ -15,7 +15,9 @@
     "test": "node --import tsx --test tests/*.test.ts",
     "test:db": "tsx tests/parity.manual.ts && tsx tests/server.manual.ts && tsx tests/delivery.manual.ts",
     "notify:work": "tsx scripts/notify-worker.ts",
-    "test:journey": "node tests/journey.mjs"
+    "test:journey": "node tests/journey.mjs",
+    "db:baseline": "node scripts/migrate.mjs --baseline",
+    "notify:drain": "node scripts/drain.mjs"
   },
   "dependencies": {
     "next": "^16.3.5",

@@ -93,8 +93,9 @@ export async function requestCode(
     [challengeId, contact, method, hash(code), String(CODE_TTL_MS), MAX_ATTEMPTS],
   );
 
-  /* Delivery arrives in Phase 4. Until then the code is logged server-side,
-     and only handed back when a developer has explicitly asked for it. */
+  /* Logged server-side always, and handed back to the caller only when a
+     developer has explicitly asked and the build is not a production one.
+     Delivery of the code itself still goes through the notification seam. */
   console.info(`[auth] code for ${contact}: ${code}`);
   const exposeCode = process.env.AUTH_DEV_CODES === '1' && process.env.NODE_ENV !== 'production';
 

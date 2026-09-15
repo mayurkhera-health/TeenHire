@@ -35,6 +35,14 @@ COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
+# The release command runs the migrations from inside this image, so the SQL
+# and the runner have to be in it. Both are plain files: migrate.mjs needs only
+# `pg`, which the standalone trace already includes because the app uses it, so
+# there is no psql and no second node_modules here.
+COPY --from=builder --chown=nextjs:nodejs /app/db/migrations ./db/migrations
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/migrate.mjs ./scripts/migrate.mjs
+COPY --from=builder --chown=nextjs:nodejs /app/scripts/drain.mjs ./scripts/drain.mjs
+
 USER nextjs
 EXPOSE 3000
 ENV PORT=3000

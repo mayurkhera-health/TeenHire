@@ -6,12 +6,31 @@ primary_region = "sjc"
 
 [build]
 
+# Runs on every deploy, before the new version takes traffic. If it fails the
+# deploy stops and the old version keeps serving, which is the behaviour you
+# want from a migration: a half-migrated database never meets a new app.
+#
+# Safe to repeat. The runner records what it has applied and does nothing on a
+# second run — see scripts/migrate.mjs. A database that predates that runner
+# needs `node scripts/migrate.mjs --baseline` once, by hand.
+[deploy]
+  release_command = "node scripts/migrate.mjs"
+
+# ── Processes ──────────────────────────────────────────────────────────────
+# Two, because they fail differently. The web process can be suspended between
+# visits; the worker cannot, or nothing would ever be sent. A timer inside the
+# web process would send nothing during a deploy and everything twice whenever
+# two instances were running.
+[processes]
+  app = "node server.js"
+  worker = "node scripts/drain.mjs 30"
+
 [http_service]
   internal_port = 3000
   force_https = true
-  # The app holds no server-side state, so a machine can be suspended between
-  # visits and resumed in well under a second. Set min_machines_running = 1 if
-  # a first-visit pause is unacceptable for a demo.
+  # State lives in Postgres, not in the machine, so a web machine can be
+  # suspended between visits and resumed in well under a second. Set
+  # min_machines_running = 1 if a first-visit pause is unacceptable.
   auto_stop_machines = "suspend"
   auto_start_machines = true
   min_machines_running = 0
@@ -20,3 +39,13 @@ primary_region = "sjc"
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"
+  processes = ["app"]
+
+# The worker only makes one HTTP request every thirty seconds, so it is sized
+# for that. It does stay up, which is the one thing here that costs money
+# whether or not anybody uses the product — swap it for an external cron
+# hitting /api/notify/drain if that matters more than having no dependencies.
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+  processes = ["worker"]
