@@ -24,10 +24,30 @@ export function getPool(): Pool {
       connectionTimeoutMillis: 5_000,
       /* Managed Postgres almost always requires TLS; a local cluster does not.
          Driven by the URL so neither needs a code change. */
-      ssl: connectionString.includes('sslmode=disable') ? false : undefined,
+      ssl: sslFor(connectionString),
     });
   }
   return global.__teenhirePool;
+}
+
+/* Mirrored in scripts/pg-ssl.mjs, which the migration runner and the database
+   check use — they are plain JavaScript so that they run inside the standalone
+   image, and cannot import this. tests/pg-ssl.test.ts runs the same cases
+   against both, so the app and the scripts cannot disagree about a URL. */
+export function sslFor(url: string): false | { rejectUnauthorized: boolean } | undefined {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return undefined;
+  }
+
+  const mode = parsed.searchParams.get('sslmode');
+  if (mode === 'disable') return false;
+  if (mode === 'verify-ca' || mode === 'verify-full') return { rejectUnauthorized: true };
+  if (mode) return { rejectUnauthorized: false };
+  if (/^(localhost|127\.0\.0\.1|\[?::1\]?|0\.0\.0\.0)$/.test(parsed.hostname)) return false;
+  return { rejectUnauthorized: false };
 }
 
 export async function query<T>(text: string, params: unknown[] = []): Promise<T[]> {

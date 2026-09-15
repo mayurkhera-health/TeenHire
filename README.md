@@ -230,6 +230,29 @@ query.
 | `NOTIFY_REPLY_TO` | no | Replies go nowhere useful. |
 | `AUTH_DEV_CODES` | **never in production** | Ignored there anyway — it is gated on `NODE_ENV` as well — but do not set it. |
 
+### If `npm run typecheck` fails on a fresh clone
+
+It will, and the errors will point at your code rather than at the cause:
+
+```
+error TS2345: Argument of type '"/admin"' is not assignable to
+parameter of type 'RouteImpl<"/admin">'
+```
+
+`typedRoutes` generates the route map at build time, so on a checkout that has
+never been built there is nothing to check routes against — and on a checkout
+with a stale `.next`, routes are checked against whatever existed last time.
+Build once:
+
+```bash
+rm -rf .next
+npm run build
+npm run typecheck
+```
+
+Every error of that shape names a route, and the route it names is always one
+that the current `.next` does not know about yet.
+
 ### Checking a database before you trust it
 
 Every page runs a PostGIS query — distance, radius, the eligibility gate — so
@@ -242,6 +265,13 @@ arrives during the first deploy's migration.
 DATABASE_URL="postgres://..." npm run db:check
 ```
 
+A local URL needs no `sslmode`: a hostname of `localhost` or `127.0.0.1` is
+assumed not to speak TLS, anything else is assumed to require it, and an
+explicit `sslmode` overrides both. The app and the scripts share that rule and
+`tests/pg-ssl.test.ts` pins it, because the two disagreeing about the same URL
+produces "the server does not support SSL connections" — which reads like a
+broken database rather than a wrong assumption in the client.
+
 It answers the three questions that decide it — is PostGIS available, may this
 role install it, may this role create tables — and says what to do about each
 answer. Read-only apart from one `CREATE EXTENSION` attempt, which is rolled
@@ -250,6 +280,13 @@ back.
 The role part is not hypothetical: a provider handing you a limited user
 produces a database that connects perfectly and then fails on the first
 migration. Point `db:check` at a candidate before you build anything on it.
+
+**On macOS, check which Postgres PostGIS was built for.** Homebrew compiles
+`postgis` against whichever Postgres is current, so a machine carrying both
+`postgresql@16` and `postgresql@18` gets PostGIS for 18 — and if 16 is the one
+running, `db:check` reports PostGIS missing from a machine that has it
+installed. `brew list --versions` shows what is there; run the version PostGIS
+was built against, or rebuild PostGIS against the one you want.
 
 ### Fly.io
 

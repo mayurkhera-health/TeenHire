@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import pg from 'pg';
+import { sslFor } from './pg-ssl.mjs';
 
 /* The migration runner.
  *
@@ -25,7 +26,7 @@ if (!url) {
 
 const client = new pg.Client({
   connectionString: url,
-  ssl: /sslmode=disable/.test(url) ? undefined : { rejectUnauthorized: false },
+  ssl: sslFor(url),
 });
 await client.connect();
 

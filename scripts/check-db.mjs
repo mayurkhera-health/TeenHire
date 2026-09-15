@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { sslFor } from './pg-ssl.mjs';
 
 /* Is this database one the app can actually run on?
  *
@@ -24,7 +25,7 @@ const bad = (line, fix) => { problems++; console.log(`NO   ${line}`); if (fix) c
 
 const client = new pg.Client({
   connectionString: url,
-  ssl: /sslmode=disable/.test(url) ? undefined : { rejectUnauthorized: false },
+  ssl: sslFor(url),
   connectionTimeoutMillis: 10_000,
 });
 
