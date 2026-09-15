@@ -309,6 +309,53 @@ await scenario(
 );
 
 await scenario(
+  'Given a filtered feed, When the URL is shared, Then it opens with the same filters applied',
+  async (page) => {
+    await onboard(page);
+    await page.getByRole('button', { name: 'Volunteer', exact: true }).click();
+    await page.waitForTimeout(700);
+    await page.getByRole('button', { name: /^Filters/ }).click();
+    await page.waitForTimeout(400);
+    const sheet = page.locator('.sheet, [role="dialog"]').last();
+    await sheet.getByRole('button', { name: 'Weekends' }).click();
+    await sheet.getByRole('button', { name: /Show \d+ opportunities/ }).click();
+    await page.waitForTimeout(700);
+
+    const shared = page.url();
+    if (!/types=|when=/.test(shared)) throw new Error(`filters are not in the URL: ${shared}`);
+
+    /* Opened fresh, the way a friend would open it. */
+    await page.goto(`${BASE}/discover`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(900);
+    const clean = (await page.getByRole('button', { name: /^Filters/ }).textContent()).trim();
+    if (/·/.test(clean)) throw new Error(`a plain /discover arrived with filters: "${clean}"`);
+
+    await page.goto(shared, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+    /* Two were set: a type and a timing. */
+    const restored = (await page.getByRole('button', { name: /^Filters/ }).textContent()).trim();
+    if (!/·\s*2/.test(restored)) throw new Error(`the shared link did not restore both filters: "${restored}"`);
+    const volunteer = await page.getByRole('button', { name: 'Volunteer', exact: true }).getAttribute('aria-pressed');
+    if (volunteer !== 'true') throw new Error('the type chip did not come back selected');
+  },
+);
+
+await scenario(
+  'Given a hand-edited URL, When it names filters that do not exist, Then they are ignored rather than breaking the feed',
+  async (page) => {
+    await onboard(page);
+    await page.goto(`${BASE}/discover?types=paid,nonsense&r=9999&when=never&q=${'x'.repeat(400)}`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+    const badge = (await page.getByRole('button', { name: /^Filters/ }).textContent()).trim();
+    /* Only the one real value survives. */
+    if (!/·\s*1/.test(badge)) throw new Error(`unknown values were not discarded: "${badge}"`);
+    if ((await page.getByRole('button', { name: /Clear what I picked/ }).count()) === 0) {
+      throw new Error('a nonsense search left no way back');
+    }
+  },
+);
+
+await scenario(
   'Given a shared link to an opportunity, When someone opens it with no account, Then the page renders rather than redirecting them away',
   async (page) => {
     await onboard(page);

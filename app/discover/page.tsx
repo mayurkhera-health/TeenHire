@@ -1,7 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
+import { Suspense, useCallback, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import type { Route } from 'next';
 import { CompactRow, OpportunityCard } from '@/components/OpportunityCard';
 import { NavShell, RequireProfile } from '@/components/Shell';
 import { Chip, Sheet } from '@/components/ui';
@@ -13,6 +15,8 @@ import { DataError, DataLoading } from '@/components/DataError';
 import {
   EMPTY_FILTERS,
   FILTER_TIMING,
+  filtersFromQuery,
+  filtersToQuery,
   RADIUS_OPTIONS,
   activeFilterCount,
   applyFilters,
@@ -32,7 +36,11 @@ export default function DiscoverPage() {
   return (
     <RequireProfile>
       <NavShell>
-        <Discover />
+        {/* useSearchParams needs a boundary; the feed renders the moment the
+            URL is readable, which is immediately on the client. */}
+        <Suspense fallback={<DataLoading />}>
+          <Discover />
+        </Suspense>
       </NavShell>
     </RequireProfile>
   );
@@ -40,10 +48,41 @@ export default function DiscoverPage() {
 
 function Discover() {
   const { profile, updateProfile } = useApp();
-  const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
-  const [query, setQuery] = useState('');
+  const router = useRouter();
+  const pathname = usePathname();
+  const params = useSearchParams();
   const [sheetOpen, setSheetOpen] = useState(false);
   const [expanded, setExpanded] = useState<string[]>([]);
+
+  /* Derived from the URL rather than mirrored into it. Mirroring means two
+     sources of truth that drift — and the drift is exactly the bug this
+     replaces, where the chips said one thing and the browser's history said
+     another. */
+  const { filters, query } = useMemo(
+    () => filtersFromQuery(new URLSearchParams(params.toString())),
+    [params],
+  );
+
+  /* replace, not push: a student tapping four chips should not have to press
+     back four times to leave the feed. The filters still survive back from an
+     opportunity, because that navigation is the one that pushed. */
+  const write = useCallback(
+    (next: Filters, nextQuery: string) => {
+      const search = filtersToQuery(next, nextQuery);
+      /* typedRoutes checks route literals and cannot know a query string built
+         at runtime. The pathname is the typed part and it never changes. */
+      router.replace((search ? `${pathname}?${search}` : pathname) as Route, { scroll: false });
+    },
+    [router, pathname],
+  );
+
+  const setFilters = useCallback(
+    (update: Filters | ((f: Filters) => Filters)) =>
+      write(typeof update === 'function' ? update(filters) : update, query),
+    [write, filters, query],
+  );
+
+  const setQuery = useCallback((next: string) => write(filters, next), [write, filters]);
 
   const student = profile!;
   const nextRadius = RADIUS_OPTIONS.find((r) => r > student.radiusMiles) ?? 25;
@@ -78,8 +117,7 @@ function Discover() {
      rather than sending a student off to find the radius control themselves. */
   const widen = () => {
     updateProfile({ radiusMiles: nextRadius });
-    setFilters(EMPTY_FILTERS);
-    setQuery('');
+    write(EMPTY_FILTERS, '');
   };
 
   const toggleType = (type: OpportunityType) =>
@@ -152,10 +190,7 @@ function Discover() {
           beyond={beyond}
           nextRadius={nextRadius}
           onWiden={widen}
-          onClear={() => {
-            setFilters(EMPTY_FILTERS);
-            setQuery('');
-          }}
+          onClear={() => write(EMPTY_FILTERS, '')}
         />
       ) : searching ? (
         <section className="section">
@@ -249,7 +284,7 @@ function Discover() {
           <button type="button" className="btn btn-primary btn-block" onClick={() => setSheetOpen(false)}>
             Show {applyFilters(searchRanked(ranked, query), filters).length} opportunities
           </button>
-          <button type="button" className="btn btn-tertiary" onClick={() => setFilters(EMPTY_FILTERS)}>
+          <button type="button" className="btn btn-tertiary" onClick={() => write(EMPTY_FILTERS, '')}>
             Clear filters
           </button>
         </div>

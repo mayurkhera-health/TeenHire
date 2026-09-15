@@ -113,6 +113,49 @@ export function applyFilters(ranked: Ranked[], filters: Filters): Ranked[] {
   });
 }
 
+/* ---------- Filters in the URL ---------- */
+/* They used to live in component state, so pressing back from an opportunity
+   dropped them — and on a phone, back is how you leave a screen. A student
+   filtered, opened one job, came back, and had to filter again for the next.
+ *
+ * Putting them in the query string fixes that and makes a filtered search
+ * shareable, which is the same fix twice. Read back defensively: a URL is
+ * something anyone can type, and an unknown value should be ignored rather
+ * than allowed to produce a state the chips cannot represent. */
+
+export const FILTER_PARAMS = { types: 'types', radius: 'r', timing: 'when', query: 'q' } as const;
+
+export function filtersToQuery(filters: Filters, query: string): string {
+  const params = new URLSearchParams();
+  if (filters.types.length > 0) params.set(FILTER_PARAMS.types, filters.types.join(','));
+  if (filters.radius !== null) params.set(FILTER_PARAMS.radius, String(filters.radius));
+  if (filters.timing.length > 0) params.set(FILTER_PARAMS.timing, filters.timing.join(','));
+  if (query.trim().length > 0) params.set(FILTER_PARAMS.query, query.trim());
+  return params.toString();
+}
+
+const ALL_TYPES: OpportunityType[] = ['paid', 'internship', 'volunteer'];
+
+export function filtersFromQuery(params: URLSearchParams): { filters: Filters; query: string } {
+  const list = (key: string) => (params.get(key) ?? '').split(',').map((v) => v.trim()).filter(Boolean);
+
+  const types = list(FILTER_PARAMS.types).filter((t): t is OpportunityType =>
+    ALL_TYPES.includes(t as OpportunityType));
+  const timing = list(FILTER_PARAMS.timing).filter((t): t is Timing =>
+    FILTER_TIMING.includes(t as Timing));
+
+  const rawRadius = Number(params.get(FILTER_PARAMS.radius));
+  const radius = RADIUS_OPTIONS.includes(rawRadius as (typeof RADIUS_OPTIONS)[number])
+    ? rawRadius
+    : null;
+
+  return {
+    filters: { types, radius, timing },
+    /* Capped so a pasted URL cannot push an unbounded string through search. */
+    query: (params.get(FILTER_PARAMS.query) ?? '').slice(0, 80),
+  };
+}
+
 export function activeFilterCount(filters: Filters): number {
   return filters.types.length + filters.timing.length + (filters.radius === null ? 0 : 1);
 }
