@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { query } from '../db';
 import { SMS_LIMIT, smsText, type Channel, type Notification } from '../notifications';
 import { providerFor } from './delivery';
+import { unsubscribeUrl } from './unsubscribe';
 import type { Method, OutboundMessage } from './delivery';
 
 /* Delivery: the part between "we decided to say this" and "somebody's phone
@@ -50,7 +51,11 @@ export async function recipientFor(userId: string, channel: Channel): Promise<Re
   return { contact: user.contact, method: channel === 'SMS' && canText ? 'sms' : 'email' };
 }
 
-export function compose(notification: Notification, method: Method): OutboundMessage & { contact: '' } {
+export function compose(
+  notification: Notification,
+  method: Method,
+  userId?: string,
+): OutboundMessage & { contact: '' } {
   const link = `${appUrl()}${notification.href}`;
 
   if (method === 'sms') {
@@ -61,11 +66,19 @@ export function compose(notification: Notification, method: Method): OutboundMes
     return { method, contact: '', subject: '', text: body };
   }
 
+  /* Every email says how to stop it, in the body as well as in the header.
+     The header is what Gmail's own unsubscribe button uses; the footer line
+     is for the student who is reading rather than clicking a chrome widget,
+     which for a fifteen-year-old on a phone is most of them. */
+  const stop = userId ? unsubscribeUrl(userId, appUrl()) : undefined;
+  const footer = stop ? `\n\n—\nStop these emails: ${stop}` : '';
+
   return {
     method,
     contact: '',
     subject: notification.headline,
-    text: `${notification.detail}\n\n${notification.action}: ${link}`,
+    text: `${notification.detail}\n\n${notification.action}: ${link}${footer}`,
+    ...(stop ? { unsubscribeUrl: stop } : {}),
   };
 }
 
@@ -87,7 +100,7 @@ export async function queueNotification(request: QueueRequest): Promise<QueueOut
   const recipient = await recipientFor(request.userId, request.notification.channel);
   if (!recipient) return { queued: false, reason: 'no_contact' };
 
-  const message = compose(request.notification, recipient.method);
+  const message = compose(request.notification, recipient.method, request.userId);
   const rowId = id();
 
   /* Written before anything is sent. If the process dies mid-send the record
@@ -119,6 +132,7 @@ export async function queueNotification(request: QueueRequest): Promise<QueueOut
 
 interface DueRow {
   id: string;
+  user_id: string;
   to_method: Method;
   to_contact: string;
   subject: string;
@@ -136,6 +150,12 @@ export async function attempt(row: DueRow): Promise<'SENT' | 'FAILED' | 'SUPPRES
     contact: row.to_contact,
     subject: row.subject,
     text: row.body,
+    /* Re-derived rather than stored. The signature is a pure function of the
+       user id and AUTH_SECRET, so there is nothing to keep in sync, and a
+       database dump holds no working unsubscribe links. */
+    ...(row.to_method === 'email'
+      ? { unsubscribeUrl: unsubscribeUrl(row.user_id, appUrl()) }
+      : {}),
   });
 
   if (result.ok) {
@@ -167,7 +187,7 @@ export async function attempt(row: DueRow): Promise<'SENT' | 'FAILED' | 'SUPPRES
 
 export async function deliverNow(deliveryId: string): Promise<'SENT' | 'FAILED' | 'SUPPRESSED' | 'MISSING'> {
   const [row] = await query<DueRow & { status: string }>(
-    `SELECT id, to_method, to_contact, subject, body, attempts, status
+    `SELECT id, user_id, to_method, to_contact, subject, body, attempts, status
      FROM notification_deliveries WHERE id = $1`,
     [deliveryId],
   );
@@ -188,7 +208,7 @@ export interface WorkerResult {
    guarded by the row, and the row was guarded by the unique key. */
 export async function deliverDue(limit = 100): Promise<WorkerResult> {
   const rows = await query<DueRow>(
-    `SELECT id, to_method, to_contact, subject, body, attempts
+    `SELECT id, user_id, to_method, to_contact, subject, body, attempts
      FROM notification_deliveries
      WHERE status IN ('QUEUED','FAILED') AND next_attempt_at <= now()
      ORDER BY next_attempt_at ASC

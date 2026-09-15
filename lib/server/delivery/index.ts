@@ -1,8 +1,10 @@
 import { LogProvider } from './log';
+import { resendFrom } from './resend';
 import type { Provider } from './provider';
 
 export type { Method, OutboundMessage, Provider, SendResult } from './provider';
 export { LogProvider, RecordingProvider } from './log';
+export { ResendProvider, resendFrom } from './resend';
 
 /* Which provider this process uses, and the guard that stops the development
  * one reaching production.
@@ -48,6 +50,11 @@ export function providerFor(env: NodeJS.ProcessEnv = process.env): Provider {
 
   /* Real providers land here. Each one is a file next to log.ts implementing
      the same three-line interface; nothing above the seam changes. */
+  if (chosen === 'resend') {
+    current = resendFrom(env);
+    return current;
+  }
+
   throw new Error(`Unknown NOTIFY_PROVIDER "${chosen}". Add an adapter in lib/server/delivery.`);
 }
 

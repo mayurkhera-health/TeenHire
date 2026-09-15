@@ -3,9 +3,16 @@ import { createOrganization, createOpportunity } from '../lib/server/organizatio
 import { requestCode, verifyCode } from '../lib/server/auth';
 import { saveStudent } from '../lib/server/students';
 import { audienceFor, preferencesFor, savePreferences } from '../lib/server/audience';
-import { deliverDue, queueNotification, recipientFor, MAX_ATTEMPTS } from '../lib/server/notify';
+import {
+  compose,
+  deliverDue,
+  queueNotification,
+  recipientFor,
+  MAX_ATTEMPTS,
+} from '../lib/server/notify';
 import { onOpportunityPublished } from '../lib/server/triggers';
 import { RecordingProvider, setProvider } from '../lib/server/delivery';
+import { signatureFor, unsubscribe, unsubscribeUrl } from '../lib/server/unsubscribe';
 import { findEligible } from '../lib/repository';
 import type { Notification } from '../lib/notifications';
 import type { StudentProfile } from '../lib/types';
@@ -247,15 +254,65 @@ async function main() {
       sent?.status === 'SENT' && sent?.provider === 'recording' && sent?.sent_at !== null);
   }
 
+
+  // ── unsubscribe ──────────────────────────────────────────────────────────
+  /* The link is followed from a mail client with no session, sometimes by the
+     mailbox provider's own robot. So the only thing that can be trusted is the
+     signature, and the only thing the signature authorises is switching
+     notifications off. */
+  {
+    const quiet = await signUp('stopplease@example.com');
+    await saveStudent(quiet, profile({ name: 'Quiet Please' }));
+
+    check('a forged token changes nothing', (await unsubscribe(quiet, 'not-a-signature')) === false);
+    check('and the student still hears things',
+      (await preferencesFor(quiet)).frequency !== 'off');
+
+    /* Another student's valid signature must not work on this one — the
+       signature covers the id, so swapping the id invalidates it. */
+    const other = await signUp('someoneelse@example.com');
+    await saveStudent(other, profile({ name: 'Someone Else' }));
+    check("another student's signature does not unsubscribe this one",
+      (await unsubscribe(quiet, signatureFor(other))) === false);
+    check('and they are still subscribed', (await preferencesFor(quiet)).frequency !== 'off');
+
+    check('their own signature works', (await unsubscribe(quiet, signatureFor(quiet))) === true);
+    check('and notifications are off', (await preferencesFor(quiet)).frequency === 'off');
+    check('so the audience no longer includes them',
+      !(await audienceFor(oppId)).some((a) => a.userId === quiet));
+
+    const url = unsubscribeUrl(quiet, 'https://teenhire.example/');
+    check('the link carries the id and the signature, and no doubled slash',
+      url.startsWith('https://teenhire.example/unsubscribe?u=') && url.includes('&t='), url);
+    check('the signature is not the id in disguise', !url.includes(`t=${quiet}`));
+  }
+
+  // ── every email says how to stop it ──────────────────────────────────────
+  {
+    const someone = await signUp('footer@example.com');
+    await saveStudent(someone, profile({ name: 'Footer' }));
+    const message = compose(aNotification(), 'email', someone);
+    check('an email body carries an unsubscribe link', /Stop these emails: http/.test(message.text));
+    check('and the header URL is set for one-click',
+      typeof message.unsubscribeUrl === 'string' && message.unsubscribeUrl.includes('/unsubscribe?'));
+
+    const text = compose(aNotification(), 'sms', someone);
+    check('an SMS carries no unsubscribe header', text.unsubscribeUrl === undefined);
+  }
+
   // ── the publish trigger, end to end ──────────────────────────────────────
   {
     await query('DELETE FROM notification_deliveries');
     const recorder = new RecordingProvider();
     setProvider(recorder);
 
+    /* Recomputed here rather than reusing the audience captured at the top:
+       the checks in between add students, and a stale count made this fail
+       for a reason that had nothing to do with publishing. */
+    const eligible = await audienceFor(oppId);
     const queued = await onOpportunityPublished(oppId);
-    check('publishing queues one message per eligible student', queued === audience.length,
-      `${queued} queued for ${audience.length} eligible`);
+    check('publishing queues one message per eligible student', queued === eligible.length,
+      `${queued} queued for ${eligible.length} eligible`);
 
     /* Republishing must not tell the same people again. */
     const again = await onOpportunityPublished(oppId);
@@ -263,6 +320,22 @@ async function main() {
 
     const run = await deliverDue();
     check('the worker delivers them', run.sent === queued, JSON.stringify(run));
+    /* The student who used the unsubscribe link must not be in the delivery
+       table at all for this posting — not queued and suppressed, absent. */
+    const reached = await query<{ user_id: string }>(
+      `SELECT DISTINCT user_id FROM notification_deliveries
+       WHERE event = 'NEW_MATCH_AVAILABLE'`,
+    );
+    const offCount = await query<{ count: string }>(
+      `SELECT count(*)::text AS count FROM students WHERE notify_frequency = 'off'`,
+    );
+    const silenced = await query<{ user_id: string }>(
+      `SELECT user_id FROM students WHERE notify_frequency = 'off'`,
+    );
+    check('there are students with notifications off to test against',
+      Number(offCount[0]?.count ?? 0) > 0);
+    check('and none of them received a match message',
+      !reached.some((r) => silenced.some((sOff) => sOff.user_id === r.user_id)));
 
     /* §36, at the delivery layer this time: nothing that left the building
        describes the student it went to. */

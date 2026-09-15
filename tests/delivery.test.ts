@@ -1,6 +1,12 @@
 import { strict as assert } from 'node:assert';
 import { afterEach, describe, it } from 'node:test';
-import { LogProvider, providerFor, setProvider } from '../lib/server/delivery';
+import {
+  LogProvider,
+  ResendProvider,
+  providerFor,
+  resendFrom,
+  setProvider,
+} from '../lib/server/delivery';
 import { compose } from '../lib/server/notify';
 import { SMS_LIMIT } from '../lib/notifications';
 import type { Notification } from '../lib/notifications';
@@ -90,5 +96,114 @@ describe('compose', () => {
       if (saved === undefined) delete process.env.APP_URL;
       else process.env.APP_URL = saved;
     }
+  });
+});
+
+describe('the Resend adapter', () => {
+  const options = (fetchImpl: typeof fetch) => ({
+    apiKey: 'test-key',
+    from: 'TeenHire <notifications@mail.teenhire.example>',
+    fetchImpl,
+  });
+
+  const email = {
+    method: 'email' as const,
+    contact: 'student@example.com',
+    subject: 'New weekend job nearby',
+    text: 'Saturday Barista • 16+ • $19–$22/hr',
+  };
+
+  const replying = (status: number, body = '{}'): typeof fetch =>
+    (async () => new Response(body, { status })) as unknown as typeof fetch;
+
+  it('sends and returns the provider id', async () => {
+    const seen: RequestInit[] = [];
+    const capture = (async (_url: string, init: RequestInit) => {
+      seen.push(init);
+      return new Response(JSON.stringify({ id: 'resend-abc' }), { status: 200 });
+    }) as unknown as typeof fetch;
+
+    const result = await new ResendProvider(options(capture)).send({
+      ...email,
+      unsubscribeUrl: 'https://teenhire.example/unsubscribe?u=usr_1&t=deadbeef',
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(result.ok === true && result.providerMessageId, 'resend-abc');
+
+    const body = JSON.parse(String(seen[0]?.body));
+    assert.deepEqual(body.to, ['student@example.com']);
+    assert.equal(body.from, 'TeenHire <notifications@mail.teenhire.example>');
+    /* One-click unsubscribe, which Gmail and Yahoo require of bulk senders.
+       The angle brackets are part of the header syntax, not decoration. */
+    assert.equal(
+      body.headers['List-Unsubscribe'],
+      '<https://teenhire.example/unsubscribe?u=usr_1&t=deadbeef>',
+    );
+    assert.equal(body.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');
+  });
+
+  it('omits the unsubscribe headers when there is no link', async () => {
+    const seen: RequestInit[] = [];
+    const capture = (async (_url: string, init: RequestInit) => {
+      seen.push(init);
+      return new Response('{"id":"x"}', { status: 200 });
+    }) as unknown as typeof fetch;
+
+    await new ResendProvider(options(capture)).send(email);
+    assert.equal(JSON.parse(String(seen[0]?.body)).headers, undefined);
+  });
+
+  /* The classification that decides whether a queue drains or backs up. A
+     rate limit is a wait; a bad key or a malformed address never becomes
+     valid, and retrying those burns every message against the attempt limit. */
+  it('retries a rate limit and a provider outage', async () => {
+    for (const status of [429, 500, 502, 503]) {
+      const result = await new ResendProvider(options(replying(status))).send(email);
+      assert.equal(result.ok, false);
+      assert.equal(result.ok === false && result.retryable, true, `status ${status}`);
+    }
+  });
+
+  it('does not retry a bad key, a refused sender, or a bad address', async () => {
+    for (const status of [401, 403, 422]) {
+      const result = await new ResendProvider(options(replying(status))).send(email);
+      assert.equal(result.ok, false);
+      assert.equal(result.ok === false && result.retryable, false, `status ${status}`);
+    }
+  });
+
+  it('retries when nothing came back at all', async () => {
+    const dead = (async () => {
+      throw new Error('ECONNRESET');
+    }) as unknown as typeof fetch;
+    const result = await new ResendProvider(options(dead)).send(email);
+    assert.equal(result.ok === false && result.retryable, true);
+    assert.match(result.ok === false ? result.error : '', /ECONNRESET/);
+  });
+
+  it('refuses an SMS rather than pretending to send it', async () => {
+    const result = await new ResendProvider(options(replying(200))).send({
+      ...email,
+      method: 'sms',
+    });
+    assert.equal(result.ok, false);
+    assert.equal(result.ok === false && result.retryable, false);
+  });
+
+  it('names the missing variable rather than saying it is misconfigured', () => {
+    assert.throws(() => resendFrom({ NODE_ENV: 'test', NOTIFY_FROM: 'a@b.c' } as NodeJS.ProcessEnv), /RESEND_API_KEY/);
+    assert.throws(() => resendFrom({ NODE_ENV: 'test', RESEND_API_KEY: 'k' } as NodeJS.ProcessEnv), /NOTIFY_FROM/);
+  });
+
+  it('is what NOTIFY_PROVIDER=resend selects, in production', () => {
+    setProvider(null);
+    const provider = providerFor({
+      NODE_ENV: 'production',
+      NOTIFY_PROVIDER: 'resend',
+      RESEND_API_KEY: 'k',
+      NOTIFY_FROM: 'TeenHire <a@b.c>',
+    } as NodeJS.ProcessEnv);
+    assert.equal(provider.name, 'resend');
   });
 });

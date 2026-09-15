@@ -437,12 +437,33 @@ Composition — who may hear about what, and in what words — has existed since
 the first release and is covered by unit tests. Phase 4 added everything
 between "we decided to say this" and "somebody's phone buzzed".
 
-**No provider is chosen.** That is a product decision with a lead time: a
-sender domain, an unsubscribe path, and for SMS in the US a 10DLC
-registration that takes days to weeks. None of it blocks the logic, so the
-logic is built against a seam instead — a three-line `Provider` interface in
-`lib/server/delivery`. Adding a real sender is one file next to `log.ts`;
-nothing above the seam changes.
+**Email goes through Resend.** The adapter is one file, `lib/server/delivery/
+resend.ts`, behind a three-line `Provider` interface; nothing above the seam
+knows who sends the mail. Set `NOTIFY_PROVIDER=resend`, `RESEND_API_KEY` and
+`NOTIFY_FROM`, and verify that sending domain in Resend first — SPF, DKIM and
+DMARC — or every send is refused. Prefer a subdomain (`mail.teenhire.com`) so
+a deliverability problem with notifications cannot damage the reputation of
+the domain you send real mail from.
+
+**SMS is not wired, and this matters for one setting.** A student can choose
+to hear about things "right away", which the composition layer reads as SMS.
+With an email-only sender those students are sent email instead — the
+frequency is what they expressed a preference about, and sending nothing
+because no phone number is held would be the worst reading of that choice.
+It is a deliberate degradation, not a silent one, but the setting's label
+overpromises until an SMS provider exists. US texting needs 10DLC carrier
+registration, which takes days to weeks and is worth starting before it
+becomes the thing holding up a launch.
+
+**Every email says how to stop it.** `List-Unsubscribe` and
+`List-Unsubscribe-Post` headers give Gmail and Yahoo their own one-click
+button, which they require of bulk senders, and the body carries a plain link
+for the fifteen-year-old reading on a phone who will never find the chrome
+widget. The link carries a signed token rather than a session, because it is
+followed from a mail client by someone who is not logged in — and the only
+thing that signature authorises is switching notifications off. Following it
+shows a confirmation page rather than unsubscribing on sight: mail scanners
+prefetch links, and the first thing to open one is often a robot.
 
 The guard matters more than the interface. `NOTIFY_PROVIDER` has no default in
 production and the app refuses to start with the development sender there.

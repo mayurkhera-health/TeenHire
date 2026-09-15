@@ -22,6 +22,10 @@ export interface OutboundMessage {
      error, so it is always present and may be empty. */
   subject: string;
   text: string;
+  /* Where this recipient turns these off in one click. Mailbox providers
+     require it of bulk senders, and mail to teenagers is exactly the mail
+     that should be easy to stop. Absent for SMS. */
+  unsubscribeUrl?: string;
 }
 
 export type SendResult =
