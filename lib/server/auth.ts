@@ -26,6 +26,17 @@ function pepper(): string {
   return secret ?? 'development-only-pepper';
 }
 
+/* Nobody signs up to be an admin. The role comes from an allow-list held in
+   the environment and from nowhere else — a self-service path to admin would
+   be a hole in the one part of this product that exists to keep minors safe. */
+export function isAdminContact(contact: string): boolean {
+  return (process.env.ADMIN_CONTACTS ?? '')
+    .split(',')
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean)
+    .includes(contact.toLowerCase());
+}
+
 const hash = (value: string) => createHash('sha256').update(`${pepper()}:${value}`).digest('hex');
 const id = (prefix: string) => `${prefix}_${randomBytes(9).toString('base64url')}`;
 
@@ -158,16 +169,28 @@ async function upsertUser(
   contact: string,
   method: ContactMethod,
 ): Promise<{ userId: string; isNew: boolean }> {
+  const role = isAdminContact(contact) ? 'admin' : 'student';
+
   const [existing] = await query<{ id: string }>('SELECT id FROM users WHERE contact = $1', [contact]);
   if (existing) {
-    await query('UPDATE users SET verified_at = now() WHERE id = $1', [existing.id]);
+    /* An address added to the allow-list takes effect on the next sign-in;
+       one removed from it loses the role the same way. */
+    await query(
+      `UPDATE users SET verified_at = now(),
+         role = CASE WHEN $2 = 'admin' THEN 'admin'
+                     WHEN role = 'admin' THEN 'student'
+                     ELSE role END
+       WHERE id = $1`,
+      [existing.id, role],
+    );
     return { userId: existing.id, isNew: false };
   }
+
   const userId = id('usr');
   await query(
     `INSERT INTO users (id, contact, contact_method, role, verified_at)
-     VALUES ($1,$2,$3,'student', now())`,
-    [userId, contact, method],
+     VALUES ($1,$2,$3,$4, now())`,
+    [userId, contact, method, role],
   );
   return { userId, isNew: true };
 }

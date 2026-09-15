@@ -221,6 +221,39 @@ Nothing about the app requires a container — it is entirely client-side today,
 so a static host serves it just as well and more cheaply. The container is
 worth it once the FastAPI service lands and both halves want the same home.
 
+## The admin console
+
+`/admin`. Until it existed `PENDING_REVIEW` was a terminal state — the schema
+knew how to hold a pending organization and the queries knew to hide it, but
+nothing in the system could move it.
+
+**Admin is granted, never claimed.** The role comes from `ADMIN_CONTACTS` at
+sign-in and from nowhere else; a self-service path to admin would be a hole in
+the one part of this product that exists to keep minors safe. Every admin
+endpoint answers 404 rather than 403 to everyone else, so the console does not
+confirm its own existence to a signed-in student.
+
+**Verification releases what it was holding.** Approving an organization
+publishes every posting of its that was waiting — without that an admin would
+verify a business and its postings would sit in review forever, which is how
+the pipeline got stuck in the first place. Suspension is the reverse and just
+as complete: live postings come off the feed.
+
+**Every decision is written down.** `audit_log` is kept apart from `events` on
+purpose — events are analytics and may one day be trimmed or sampled; this is
+the record of who decided an organization was safe to put in front of minors,
+and it is never trimmed. Rejecting or suspending requires a reason.
+
+**Cold start** is §35 and §36: an admin creates the organization record with
+no account attached, and posts on its behalf. That posting goes through the
+same draft type and the same `draftToOpportunity` the employer wizard uses —
+an assisted posting and a self-service one differ by one column
+(`creation_method`), never by a code path.
+
+**Demand signals withhold small cells.** §41 says always aggregated; the floor
+of five is the part the spec does not spell out and needs. In a thin market
+"Saratoga · 17 · volunteer · 1 student" is a named student wearing a count.
+
 ## The marketplace loop
 
 `§6`'s loop used to be severed in two places: an expression of interest never

@@ -23,8 +23,32 @@ const check = (name: string, ok: boolean, detail = '') => {
    The only legitimate way in is the development flag the module itself gates,
    and the test below asserts that flag is what controls it. */
 
+/* The first version of this cleanup used TRUNCATE ... users CASCADE, which
+   followed opportunities.created_by_user_id and destroyed every seeded
+   opportunity and organization with it. Run against anything real it would
+   have emptied the marketplace. Scoped deletes, in dependency order, and a
+   guard so the suite cannot point at a database that is not disposable. */
 async function main() {
-  await query('TRUNCATE events, applications, saved_opportunities, students, org_members, sessions, auth_challenges, users CASCADE');
+  const url = process.env.DATABASE_URL ?? '';
+  const disposable = /localhost|127\.0\.0\.1/.test(url) || /test/i.test(url);
+  if (!disposable) {
+    throw new Error(
+      'Refusing to run: this suite deletes rows and DATABASE_URL does not look like a local or test database',
+    );
+  }
+
+  await query('DELETE FROM audit_log');
+  await query('DELETE FROM events');
+  await query('DELETE FROM applications');
+  await query('DELETE FROM saved_opportunities');
+  await query('DELETE FROM students');
+  await query('DELETE FROM org_members');
+  await query('DELETE FROM sessions');
+  await query('DELETE FROM auth_challenges');
+  /* Only what this suite created. The seed fixture is left alone. */
+  await query("DELETE FROM opportunities WHERE creation_method <> 'SEED'");
+  await query("DELETE FROM organizations WHERE id LIKE 'org\\_%'");
+  await query('DELETE FROM users');
 
   // ── the code never reaches a caller unless a developer asked for it ──────
   {

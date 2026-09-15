@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { evaluateFit, rank, type Ranked } from '@/lib/matching';
 import { countBeyond, findEligible, findManyByIds } from '@/lib/repository';
+import { record } from '@/lib/server/events';
+import { currentUser } from '@/lib/server/session';
 import type { StudentProfile } from '@/lib/types';
 
 /* One endpoint for opportunity data, so there is never a second source for a
@@ -70,6 +72,20 @@ export async function POST(request: Request) {
     if (!body.ids) {
       const now = new Date();
       ranked.sort((a, b) => rank(a, b, profile, now));
+    }
+
+    /* A request for exactly one opportunity is a student opening its detail
+       screen. §47's funnel needs that step, and the interest rate is
+       meaningless without it. Recorded here rather than from the client so it
+       cannot be lost to an ad blocker. */
+    if (body.ids?.length === 1 && rows.length === 1) {
+      const viewer = await currentUser();
+      if (viewer) {
+        await record('OPPORTUNITY_VIEW', {
+          userId: viewer.id,
+          opportunityId: body.ids[0],
+        });
+      }
     }
 
     const beyond =
