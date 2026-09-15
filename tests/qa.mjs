@@ -479,21 +479,50 @@ await scenario(
         finding('High', 'Mobile layout overflow', `${at} scrolls sideways by ${overflow}px at 375px wide. On a phone this makes the whole screen drift under the thumb.`);
       }
 
-      /* Tap targets. 44px is Apple's guidance and WCAG 2.5.5; anything under
-         is hard to hit accurately on a moving bus. */
+      /* Tap targets. 44px is Apple's guidance and WCAG 2.5.5.
+       *
+       * Measured by asking what is actually under the thumb rather than by
+       * reading the element's box. A control can be drawn at 30px and still
+       * take a 44px tap through a padded pseudo-element — .heart does exactly
+       * that, and the first version of this check reported all sixteen of
+       * them as failures against code that was already correct. */
       const small = await page.evaluate(() => {
         const out = [];
+        const HIT = 44;
         for (const el of document.querySelectorAll('a[href], button, input, select, textarea')) {
           const r = el.getBoundingClientRect();
           if (r.width === 0 || r.height === 0) continue;
-          if (r.height < 44 || r.width < 44) {
-            out.push(`${el.tagName.toLowerCase()} "${(el.textContent || el.getAttribute('aria-label') || el.id || '').trim().slice(0, 30)}" ${Math.round(r.width)}x${Math.round(r.height)}`);
-          }
+          if (r.height >= HIT && r.width >= HIT) continue;
+
+          const cx = r.left + r.width / 2;
+          const cy = r.top + r.height / 2;
+
+          /* Occluded at this scroll position — the fixed nav and the sticky
+             action bar both sit over content that scrolls beneath them. That
+             is not a tap-target defect and this check cannot judge an element
+             it cannot see, so it says nothing rather than something wrong. */
+          const centre = document.elementFromPoint(cx, cy);
+          if (!(centre === el || el.contains(centre) || centre?.contains(el))) continue;
+
+          const half = HIT / 2 - 1;
+          /* The four points a thumb aiming at the centre might actually land
+             on if the target were 44px. */
+          const corners = [
+            [cx - half, cy], [cx + half, cy], [cx, cy - half], [cx, cy + half],
+          ];
+          const reaches = corners.every(([x, y]) => {
+            if (x < 0 || y < 0 || x > innerWidth || y > innerHeight) return true;
+            const hit = document.elementFromPoint(x, y);
+            return hit === el || el.contains(hit) || hit?.contains(el);
+          });
+          if (reaches) continue;
+
+          out.push(`${el.tagName.toLowerCase()} "${(el.textContent || el.getAttribute('aria-label') || el.id || '').trim().slice(0, 30)}" drawn ${Math.round(r.width)}x${Math.round(r.height)}, and the tap area does not reach 44`);
         }
         return out;
       });
       for (const t of new Set(small)) {
-        finding('Low', 'A11y tap targets', `${at}: ${t} is under 44x44.`);
+        finding('Low', 'A11y tap targets', `${at}: ${t}.`);
       }
 
       const unlabelled = await page.evaluate(() =>

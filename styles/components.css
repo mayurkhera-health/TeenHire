@@ -188,22 +188,20 @@
   opacity: 0.45;
 }
 
+/* The filter row wraps, for the same reason the onboarding chips below it do.
+ *
+ * It used to scroll sideways, and at 375px that put "Volunteer" half off the
+ * edge: 459px of chips in a 375px row. A student who never swipes never learns
+ * that volunteering is one of the three things this product offers. The rule
+ * was already written for onboarding and is no less true here — these are the
+ * primary filters, not an overflow of secondary ones.
+ *
+ * The cost is a second row of chips on a narrow phone, which is cheap next to
+ * a category nobody can find. */
 .chip-row {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--s2);
-  overflow-x: auto;
-  scrollbar-width: none;
-  padding-inline: var(--gutter);
-  margin-inline: calc(var(--gutter) * -1);
-  scroll-padding-inline: var(--gutter);
-}
-
-.chip-row::-webkit-scrollbar {
-  display: none;
-}
-
-.chip-row > * {
-  flex: none;
 }
 
 /* In onboarding chips wrap. They never scroll sideways there — a student
