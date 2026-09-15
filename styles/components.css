@@ -581,3 +581,19 @@
   opacity: 0.88;
   transform: scale(0.98);
 }
+
+/* A flex item that is allowed to shrink. `min-width: auto` is the default and
+   means "never smaller than my content", which is how two money fields in one
+   row ran off the side of a phone. */
+.field {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Secondary actions on a card. They share a row while they fit and wrap as
+   whole buttons when they do not — a label breaking across two lines makes
+   one button taller than its neighbours and the row stops reading as a set. */
+.btn-action {
+  flex: 1 1 auto;
+  white-space: nowrap;
+}

@@ -1,14 +1,13 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect } from 'react';
 import { DataError, DataLoading } from '@/components/DataError';
 import { Plus } from '@/components/Icons';
 import { LogoTile, TypeBadge } from '@/components/ui';
 import { payHeadline, timingPhrase } from '@/lib/copy';
-import { useEmployer } from '@/lib/useEmployer';
+import { useEmployer, type Posting } from '@/lib/useEmployer';
 import type { Compensation, OpportunityStatus, OpportunityType, Timing } from '@/lib/types';
 
 /* The console answers two questions and no others: what do I have open, and
@@ -26,7 +25,7 @@ const STATUS_COPY: Record<OpportunityStatus, string> = {
 };
 
 export default function EmployerHome() {
-  const { organization, postings, loading, error, reload } = useEmployer();
+  const { organization, postings, loading, error, reload, setStatus } = useEmployer();
   const router = useRouter();
 
   useEffect(() => {
@@ -142,6 +141,12 @@ export default function EmployerHome() {
                       >
                         View students
                       </Link>
+
+                      <PostingActions
+                        posting={posting}
+                        verified={organization.verificationStatus === 'VERIFIED'}
+                        setStatus={setStatus}
+                      />
                     </article>
                   ))}
                 </div>
@@ -161,11 +166,102 @@ export default function EmployerHome() {
   );
 }
 
+/* What an employer can do to a posting they already have.
+ *
+ * Only the three states that are theirs to set appear: a posting waiting on
+ * our review has no buttons, because the honest answer there is that it is
+ * with us. The server refuses a publish from an unverified organization
+ * regardless of what this renders. */
+function PostingActions({
+  posting,
+  verified,
+  setStatus,
+}: {
+  posting: Posting;
+  verified: boolean;
+  setStatus: (id: string, status: 'PUBLISHED' | 'PAUSED' | 'FILLED') => Promise<string | null>;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const go = async (status: 'PUBLISHED' | 'PAUSED' | 'FILLED') => {
+    if (busy) return;
+    setBusy(true);
+    setError(await setStatus(posting.id, status));
+    setBusy(false);
+  };
+
+  const live = posting.status === 'PUBLISHED';
+  const paused = posting.status === 'PAUSED';
+  const filled = posting.status === 'FILLED';
+  const changeable = live || paused || filled;
+
+  return (
+    <div className="stack gap-2">
+      <div className="row wrap gap-2">
+        <Link
+          href={`/employer/opportunity/${posting.id}/edit`}
+          className="btn btn-secondary btn-action"
+        >
+          Edit
+        </Link>
+
+        {live ? (
+          <button type="button" className="btn btn-secondary btn-action" disabled={busy} onClick={() => void go('PAUSED')}>
+            Pause
+          </button>
+        ) : null}
+
+        {(paused || filled) && changeable ? (
+          <button
+            type="button"
+            className="btn btn-secondary btn-action"
+            disabled={busy || !verified}
+            onClick={() => void go('PUBLISHED')}
+          >
+            {filled ? 'Post again' : 'Put back up'}
+          </button>
+        ) : null}
+
+        {live || paused ? (
+          <button type="button" className="btn btn-secondary btn-action" disabled={busy} onClick={() => void go('FILLED')}>
+            Mark filled
+          </button>
+        ) : null}
+      </div>
+
+      {(paused || filled) && !verified ? (
+        <p className="t-meta">
+          We are still checking your organization, so this cannot go back up yet.
+        </p>
+      ) : null}
+
+      {error ? (
+        <p className="t-meta" role="alert" style={{ color: 'var(--warn)' }}>
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 /* §30 wants a confirmation that gives the employer immediate value. What it
    says depends on something true: a verified organization's posting is live,
    an unverified one's is queued behind its review. */
 function JustPosted({ verified }: { verified: boolean }) {
   const params = useSearchParams();
+
+  /* An edit gets its own confirmation. Saying "you're live" again after a
+     price change would be answering a question the employer did not ask. */
+  if (params.get('saved') === '1') {
+    return (
+      <div className="fit">
+        <h2 className="fit-heading">Saved</h2>
+        <p className="fit-line">Students see the updated posting from now on.</p>
+      </div>
+    );
+  }
+
   if (params.get('posted') !== '1') return null;
 
   return (

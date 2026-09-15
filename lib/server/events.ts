@@ -29,7 +29,12 @@ export type EventName =
   | 'OPPORTUNITY_CREATED'
   | 'OPPORTUNITY_PUBLISHED'
   | 'INTEREST_VIEWED'
-  | 'EMPLOYER_RESPONDED';
+  | 'EMPLOYER_RESPONDED'
+  /* Employer self-service (§29). An edit and a pause are the two things an
+     employer does to a posting after it exists, and both change what students
+     see, so both belong in the same log as the posting itself. */
+  | 'OPPORTUNITY_EDITED'
+  | 'OPPORTUNITY_STATUS_CHANGED';
 
 export interface EventContext {
   userId?: string | null;

@@ -43,6 +43,7 @@ export interface InterestedStudent {
   note: string | null;
   status: ApplicationStatus;
   createdAt: string;
+  belowMinimumAge: boolean;
 }
 
 export function useEmployer() {
@@ -71,7 +72,27 @@ export function useEmployer() {
     void load();
   }, [load]);
 
-  return { organization, postings, loading, error, reload: load };
+  /* Pause, mark filled, put it back up. The server refuses a publish from an
+     organization that is not verified, so the button asks rather than assumes
+     and shows whatever it is told. */
+  const setStatus = useCallback(
+    async (id: string, status: 'PUBLISHED' | 'PAUSED' | 'FILLED'): Promise<string | null> => {
+      const response = await fetch(`/api/employer/opportunities/${id}/status`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      if (!response.ok) {
+        const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+        return detail?.error ?? 'Could not change that right now.';
+      }
+      setPostings((current) => current.map((p) => (p.id === id ? { ...p, status } : p)));
+      return null;
+    },
+    [],
+  );
+
+  return { organization, postings, loading, error, reload: load, setStatus };
 }
 
 export function useInterestedStudents(opportunityId: string) {

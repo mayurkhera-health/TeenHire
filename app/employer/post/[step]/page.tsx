@@ -3,7 +3,7 @@
 import { notFound, useRouter } from 'next/navigation';
 import { use, useMemo, useState } from 'react';
 import { BackButton } from '@/components/Shell';
-import { Chip, ProgressRail, Tile } from '@/components/ui';
+import { Chip, MoneyField, ProgressRail, Tile } from '@/components/ui';
 import { OpportunityCard } from '@/components/OpportunityCard';
 import { usePostDraft, type PostDraft } from '@/components/PostDraft';
 import {
@@ -459,36 +459,6 @@ function ReachNote({ reach, minimumAge }: { reach: Reach; minimumAge: MinimumAge
         : `Students aged ${listPhrase(excluded.map(String))} will not see this.`}{' '}
       {review}
     </p>
-  );
-}
-
-function MoneyField({
-  id,
-  label,
-  value,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="stack gap-2" style={{ flex: 1 }}>
-      <label className="t-sub" htmlFor={id}>
-        {label}
-      </label>
-      <div className="search">
-        <span className="t-meta">$</span>
-        <input
-          id={id}
-          value={value}
-          inputMode="decimal"
-          onChange={(event) => onChange(event.target.value.replace(/[^\d.]/g, ''))}
-          placeholder="20"
-        />
-      </div>
-    </div>
   );
 }
 

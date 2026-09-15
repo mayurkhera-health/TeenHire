@@ -1,6 +1,12 @@
 import { strict as assert } from 'node:assert';
 import { getPool, query } from '../lib/db';
-import { createOrganization, createOpportunity } from '../lib/server/organizations';
+import {
+  createOrganization,
+  createOpportunity,
+  loadPostingForEdit,
+  setEmployerStatus,
+  updatePosting,
+} from '../lib/server/organizations';
 import { createInterest, loadInterestedStudents } from '../lib/server/applications';
 import { requestCode, verifyCode, userForToken, revokeSession } from '../lib/server/auth';
 import { saveStudent } from '../lib/server/students';
@@ -138,6 +144,109 @@ async function main() {
   check('employer payload rounds distance', Number.isFinite(students[0]?.distanceMiles ?? NaN)
     && String(students[0]?.distanceMiles ?? '').split('.')[1]?.length !== 6);
 
+
+  // ── Phase 3: an employer's reach stops at their own organization ─────────
+  /* The interesting case is not that the guard says no. It is that the guard
+     could be removed and these would still hold, because organization_id is
+     in every WHERE clause. So the calls below go straight past the route. */
+  {
+    const otherOrg = await createOrganization(
+      { name: 'Somebody Else Inc', kind: 'business', contactName: 'X', city: 'Santa Clara', zip: '95050' },
+      null,
+    );
+    await query(`UPDATE organizations SET verification_status = 'VERIFIED' WHERE id = $1`, [otherOrg]);
+
+    check('another organization cannot read the posting',
+      (await loadPostingForEdit(otherOrg, oppId)) === null);
+
+    const stolenEdit = await updatePosting(otherOrg, oppId, {
+      title: 'Owned', summary: 'Owned', minimumAge: 18, experience: 'required',
+      timing: ['weekends'], hours: null, compensation: { kind: 'hourly', min: 1 },
+    });
+    check('another organization cannot edit the posting', stolenEdit === false);
+
+    const [untouched] = await query<{ title: string; minimum_age: number }>(
+      'SELECT title, minimum_age FROM opportunities WHERE id = $1', [oppId]);
+    check('the posting is unchanged after the attempt',
+      untouched?.title !== 'Owned' && untouched?.minimum_age !== 18, JSON.stringify(untouched));
+
+    const stolenPause = await setEmployerStatus(otherOrg, oppId, 'PAUSED');
+    check('another organization cannot pause the posting', !stolenPause.ok);
+    const [stillLive] = await query<{ status: string }>(
+      'SELECT status FROM opportunities WHERE id = $1', [oppId]);
+    check('the posting is still live after the attempt', stillLive?.status === 'PUBLISHED');
+  }
+
+  // ── an edit cannot rewrite where the posting came from ───────────────────
+  {
+    const [before] = await query<{ creation_method: string; created_by_user_id: string | null }>(
+      'SELECT creation_method, created_by_user_id FROM opportunities WHERE id = $1', [oppId]);
+
+    const edited = await updatePosting(orgId, oppId, {
+      title: 'Counter Help', summary: 'Make drinks.', minimumAge: 16, experience: 'none',
+      timing: ['weekends', 'after_school'], hours: '10_20', compensation: { kind: 'hourly', min: 19, max: 22 },
+    });
+    check('the owner can edit their own posting', edited);
+
+    const [after] = await query<{
+      title: string; minimum_age: number; creation_method: string; created_by_user_id: string | null;
+    }>('SELECT title, minimum_age, creation_method, created_by_user_id FROM opportunities WHERE id = $1', [oppId]);
+    check('the edit lands', after?.title === 'Counter Help' && after?.minimum_age === 16);
+    check('provenance survives an edit',
+      after?.creation_method === before?.creation_method
+        && after?.created_by_user_id === before?.created_by_user_id);
+
+    const timing = await query<{ timing: string }>(
+      'SELECT timing FROM opportunity_timing WHERE opportunity_id = $1 ORDER BY timing', [oppId]);
+    check('timing is replaced, not appended to',
+      timing.length === 2 && timing.map((t) => t.timing).join(',') === 'after_school,weekends',
+      JSON.stringify(timing));
+  }
+
+  // ── the edit screen can see who a raised age would cut out ──────────────
+  {
+    const editable = await loadPostingForEdit(orgId, oppId);
+    check('the posting carries the ages already interested',
+      (editable?.interestedAges.length ?? 0) === 1, JSON.stringify(editable?.interestedAges));
+  }
+
+  // ── raising the age marks existing interest, it does not delete it ───────
+  /* The screen says the student stays and is flagged. This is the assertion
+     that keeps that sentence true. */
+  {
+    await updatePosting(orgId, oppId, {
+      title: 'Counter Help', summary: 'Make drinks.', minimumAge: 18, experience: 'none',
+      timing: ['weekends'], hours: null, compensation: { kind: 'hourly', min: 19 },
+    });
+    const after = await loadInterestedStudents(oppId);
+    check('a student who already applied is not dropped by a raised age', after.length === 1);
+    check('and is marked as under the new minimum', after[0]?.belowMinimumAge === true);
+
+    /* Put it back, so what follows sees the posting it expects. */
+    await updatePosting(orgId, oppId, {
+      title: 'Counter Help', summary: 'Make drinks.', minimumAge: 16, experience: 'none',
+      timing: ['weekends', 'after_school'], hours: '10_20',
+      compensation: { kind: 'hourly', min: 19, max: 22 },
+    });
+    const restored = await loadInterestedStudents(oppId);
+    check('and the mark clears when the age comes back down',
+      restored[0]?.belowMinimumAge === false);
+  }
+
+  // ── pause and resume, and the one transition verification guards ────────
+  {
+    const paused = await setEmployerStatus(orgId, oppId, 'PAUSED');
+    check('the owner can pause', paused.ok);
+    const [row] = await query<{ status: string }>('SELECT status FROM opportunities WHERE id = $1', [oppId]);
+    check('a paused posting is paused', row?.status === 'PAUSED');
+
+    const filled = await setEmployerStatus(orgId, oppId, 'FILLED');
+    check('the owner can mark it filled', filled.ok);
+
+    const back = await setEmployerStatus(orgId, oppId, 'PUBLISHED');
+    check('a verified organization can put it back up', back.ok);
+  }
+
   // ── the two gates that exist for safety ──────────────────────────────────
   const pendingOrg = await createOrganization(
     { name: 'Unverified Co', kind: 'business', contactName: 'T', city: 'Santa Clara', zip: '95050' },
@@ -153,6 +262,27 @@ async function main() {
     { organizationId: pendingOrg, createdByUserId: null, creationMethod: 'ADMIN_ASSISTED' },
   );
   check('a posting is never more trusted than its organization', status === 'PENDING_REVIEW');
+
+  /* And it cannot get there sideways. Pausing and resuming is the obvious way
+     an unverified organization would try to reach PUBLISHED without anyone
+     reviewing it, so the publish transition checks verification rather than
+     the create path alone. */
+  {
+    const { id: hiddenId } = await createOpportunity(
+      {
+        organizationId: pendingOrg, title: 'Also hidden', type: 'paid', minimumAge: 15,
+        experience: 'none', timing: ['weekends'], compensation: { kind: 'hourly', min: 20 },
+        summary: '', reassurance: '', responsibilities: [], schedule: '', goodToKnow: [],
+        interests: [], publishedAt: new Date().toISOString(),
+      },
+      { organizationId: pendingOrg, createdByUserId: null, creationMethod: 'ADMIN_ASSISTED' },
+    );
+    const forced = await setEmployerStatus(pendingOrg, hiddenId, 'PUBLISHED');
+    check('an unverified organization cannot publish its own posting', !forced.ok);
+    const [still] = await query<{ status: string }>(
+      'SELECT status FROM opportunities WHERE id = $1', [hiddenId]);
+    check('the posting stays in review', still?.status === 'PENDING_REVIEW', still?.status);
+  }
 
   const tooYoung = await createInterest(signedIn.userId, oppId, null);
   check('a second interest does not create a second application', tooYoung.ok && tooYoung.alreadySent);

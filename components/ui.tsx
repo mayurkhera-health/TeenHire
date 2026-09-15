@@ -192,3 +192,40 @@ export function LogoTile({
 export function StripedFill({ type, className }: { type: OpportunityType; className?: string }) {
   return <div className={`stripes ${TYPE_CLASS[type]} ${className ?? ''}`} aria-hidden="true" />;
 }
+
+/* ---------- Money field ---------- */
+/* Shared rather than copied. Two of these sit side by side in a flex row, and
+   a flex item's default min-width is its content — an input carries an
+   intrinsic width of its own, so without the min-width:0 that `.field` sets
+   the pair pushed 91px past the edge of a phone. */
+
+export function MoneyField({
+  id,
+  label,
+  value,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="field stack gap-2">
+      <label className="t-sub" htmlFor={id}>
+        {label}
+      </label>
+      <div className="search">
+        <span className="t-meta">$</span>
+        <input
+          id={id}
+          value={value}
+          inputMode="decimal"
+          size={1}
+          onChange={(event) => onChange(event.target.value.replace(/[^\d.]/g, ''))}
+          placeholder="20"
+        />
+      </div>
+    </div>
+  );
+}

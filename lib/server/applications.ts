@@ -127,6 +127,11 @@ export interface InterestedStudentRow {
   note: string | null;
   status: ApplicationStatus;
   createdAt: string;
+  /* True when the posting's minimum age has been raised above this student
+     since they applied. They are not removed — they put their hand up under
+     the terms that were published, and dropping them silently would be a
+     decision made by nobody. The employer is told instead. */
+  belowMinimumAge: boolean;
 }
 
 export async function loadInterestedStudents(
@@ -145,8 +150,9 @@ export async function loadInterestedStudents(
     note: string | null;
     status: ApplicationStatus;
     created_at: Date;
+    minimum_age: number;
   }>(
-    `SELECT a.id, s.first_name, s.age, s.search_city,
+    `SELECT a.id, s.first_name, s.age, s.search_city, o.minimum_age,
             ST_Distance(s.search_location, org.location) / 1609.344 AS distance_miles,
             s.availability, s.interests, s.things_done, s.has_similar_experience,
             a.note, a.status, a.created_at
@@ -174,6 +180,7 @@ export async function loadInterestedStudents(
     note: r.note,
     status: r.status,
     createdAt: new Date(r.created_at).toISOString(),
+    belowMinimumAge: r.age < r.minimum_age,
   }));
 }
 

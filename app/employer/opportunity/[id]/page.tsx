@@ -79,6 +79,12 @@ export default function ApplicantsPage({ params }: { params: Promise<{ id: strin
                   <span />
                 </div>
 
+                {student.belowMinimumAge ? (
+                  <p className="t-meta" style={{ color: 'var(--warn)' }}>
+                    Under the minimum age you set now. They applied before you changed it.
+                  </p>
+                ) : null}
+
                 <div className="meta-row">
                   <span className="meta-item">
                     <Pin />

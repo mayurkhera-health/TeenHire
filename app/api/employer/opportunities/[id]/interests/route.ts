@@ -5,29 +5,17 @@ import {
   respondToApplicant,
 } from '@/lib/server/applications';
 import { record } from '@/lib/server/events';
-import { organizationForUser, ownsOpportunity } from '@/lib/server/organizations';
-import { currentUser } from '@/lib/server/session';
+import { employerFor } from '@/lib/server/employerGuard';
 
 export const dynamic = 'force-dynamic';
 
 /* An organization sees students only for its own postings, and only the
-   columns §33 allows. Both facts are enforced here rather than in the screen. */
-async function guard(opportunityId: string) {
-  const user = await currentUser();
-  if (!user) return { error: NextResponse.json({ error: 'Sign in first' }, { status: 401 }) };
-  const org = await organizationForUser(user.id);
-  if (!org) return { error: NextResponse.json({ error: 'No organization' }, { status: 403 }) };
-  if (!(await ownsOpportunity(org.id, opportunityId))) {
-    /* 404 rather than 403: a wrong guess should not confirm that a posting
-       exists. */
-    return { error: NextResponse.json({ error: 'Not found' }, { status: 404 }) };
-  }
-  return { user, org };
-}
+   columns §33 allows. Ownership is the shared employer guard; the envelope is
+   the SELECT list in loadInterestedStudents. Neither is the screen's job. */
 
 export async function GET(_request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const g = await guard(id);
+  const g = await employerFor(id);
   if ('error' in g) return g.error;
 
   const students = await loadInterestedStudents(id);
@@ -45,7 +33,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
 
 export async function POST(request: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id } = await ctx.params;
-  const g = await guard(id);
+  const g = await employerFor(id);
   if ('error' in g) return g.error;
 
   const body = (await request.json().catch(() => null)) as
