@@ -7,7 +7,12 @@ import {
   setEmployerStatus,
   updatePosting,
 } from '../lib/server/organizations';
-import { createInterest, loadInterestedStudents } from '../lib/server/applications';
+import {
+  createInterest,
+  loadApplications,
+  loadInterestedStudents,
+  respondToApplicant,
+} from '../lib/server/applications';
 import { requestCode, verifyCode, userForToken, revokeSession } from '../lib/server/auth';
 import { saveStudent } from '../lib/server/students';
 
@@ -145,6 +150,56 @@ async function main() {
   check('employer payload rounds distance', Number.isFinite(students[0]?.distanceMiles ?? NaN)
     && String(students[0]?.distanceMiles ?? '').split('.')[1]?.length !== 6);
 
+
+
+  // ── §34: the handoff, and which way it runs ─────────────────────────────
+  /* The decision this encodes: the student receives the organization's
+     contact, and the organization never receives the student's. These check
+     both halves, because a handoff that leaked in the other direction would
+     look identical from the student's screen. */
+  {
+    const before = await loadApplications(signedIn.userId);
+    const waiting = before.find((a) => a.opportunityId === oppId);
+    check('no employer contact before they have said anything', waiting?.employer === null);
+
+    const app = await query<{ id: string }>(
+      'SELECT id FROM applications WHERE opportunity_id = $1 AND student_user_id = $2',
+      [oppId, signedIn.userId],
+    );
+    const applicationId = app[0]?.id;
+    if (!applicationId) throw new Error('no application to respond to');
+
+    /* A "not this time" is not a handoff either. */
+    await respondToApplicant(applicationId, orgId, 'NOT_SELECTED');
+    const declined = await loadApplications(signedIn.userId);
+    check('no employer contact after a decline',
+      declined.find((a) => a.opportunityId === oppId)?.employer === null);
+
+    await respondToApplicant(applicationId, orgId, 'EMPLOYER_INTERESTED');
+    const after = await loadApplications(signedIn.userId);
+    const connected = after.find((a) => a.opportunityId === oppId);
+
+    check('the student receives the organization name', connected?.employer?.organizationName === 'Parity Test Cafe');
+    check('and who to ask for', connected?.employer?.contactName === 'T', connected?.employer?.contactName);
+    check('and the city', connected?.employer?.city === 'Santa Clara');
+
+    /* The direction. The employer's view of the same pair must still carry
+       nothing that could be used to contact the student. */
+    const employerView = JSON.stringify(await loadInterestedStudents(oppId));
+    for (const secret of ['omar@example.com', '95050', '37.3496', '-121.9585']) {
+      check(`the employer still never sees ${secret}`, !employerView.includes(secret));
+    }
+
+    /* And a different student must not pick up the contact by being in the
+       same database. */
+    const stranger = await requestCode('email', 'stranger@example.com');
+    if (!stranger.ok) throw new Error('could not raise a challenge');
+    const strangerSession = await verifyCode(stranger.challengeId, stranger.devCode ?? '');
+    if (strangerSession.ok) {
+      const theirs = await loadApplications(strangerSession.userId);
+      check('a student with no application to this posting gets nothing', theirs.length === 0);
+    }
+  }
 
   // ── Phase 3: an employer's reach stops at their own organization ─────────
   /* The interesting case is not that the guard says no. It is that the guard

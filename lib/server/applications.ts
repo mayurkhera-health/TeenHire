@@ -87,24 +87,80 @@ export interface StudentApplication {
   status: ApplicationStatus;
   note: string | null;
   createdAt: string;
+  /* §34, the handoff. Released only once an organization has said it wants to
+     talk, and only on that student's own application.
+
+     The direction is deliberate and is the whole of the decision: the student
+     receives the organization's contact, never the other way round. A minor's
+     address is not handed to an adult who pressed a button — the student
+     decides whether to make contact, and can decide not to. Nothing here is
+     private information either; it is a business's published details. */
+  employer: EmployerContact | null;
+}
+
+export interface EmployerContact {
+  organizationName: string;
+  contactName: string;
+  phone: string | null;
+  website: string | null;
+  email: string | null;
+  city: string;
 }
 
 export async function loadApplications(studentUserId: string): Promise<StudentApplication[]> {
+  /* The CASE is the privacy rule, in the same way the employer query's SELECT
+     list is: a row that has not reached EMPLOYER_INTERESTED cannot carry an
+     organization's contact out of this function, whatever a screen asks for.
+     The employer's own account address comes from org_members — it is the
+     address they chose to be reached at when they posted. */
   const rows = await query<{
     opportunity_id: string;
     status: ApplicationStatus;
     note: string | null;
     created_at: Date;
+    org_name: string | null;
+    contact_name: string | null;
+    phone: string | null;
+    website: string | null;
+    email: string | null;
+    city: string | null;
   }>(
-    `SELECT opportunity_id, status, note, created_at FROM applications
-     WHERE student_user_id = $1 ORDER BY created_at DESC`,
+    `SELECT a.opportunity_id, a.status, a.note, a.created_at,
+            CASE WHEN a.status = 'EMPLOYER_INTERESTED' THEN org.name END          AS org_name,
+            CASE WHEN a.status = 'EMPLOYER_INTERESTED' THEN org.contact_name END  AS contact_name,
+            CASE WHEN a.status = 'EMPLOYER_INTERESTED' THEN org.phone END         AS phone,
+            CASE WHEN a.status = 'EMPLOYER_INTERESTED' THEN org.website END       AS website,
+            CASE WHEN a.status = 'EMPLOYER_INTERESTED' THEN org.city END          AS city,
+            CASE WHEN a.status = 'EMPLOYER_INTERESTED' THEN (
+              SELECT u.contact FROM org_members m
+              JOIN users u ON u.id = m.user_id
+              WHERE m.organization_id = org.id AND u.contact_method IN ('email','google','apple')
+              ORDER BY m.created_at ASC LIMIT 1
+            ) END AS email
+     FROM applications a
+     JOIN opportunities o   ON o.id = a.opportunity_id
+     JOIN organizations org ON org.id = o.organization_id
+     WHERE a.student_user_id = $1
+     ORDER BY a.created_at DESC`,
     [studentUserId],
   );
+
   return rows.map((r) => ({
     opportunityId: r.opportunity_id,
     status: r.status,
     note: r.note,
     createdAt: new Date(r.created_at).toISOString(),
+    employer:
+      r.status === 'EMPLOYER_INTERESTED' && r.org_name
+        ? {
+            organizationName: r.org_name,
+            contactName: r.contact_name ?? '',
+            phone: r.phone,
+            website: r.website,
+            email: r.email,
+            city: r.city ?? '',
+          }
+        : null,
   }));
 }
 

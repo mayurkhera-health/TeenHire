@@ -36,8 +36,9 @@ export async function createOrganization(
 
   await query(
     `INSERT INTO organizations
-       (id, name, kind, verification_status, website, phone, about, city, zip, location)
-     VALUES ($1,$2,$3,'PENDING',$4,$5,$6,$7,$8,
+       (id, name, kind, verification_status, website, phone, about, city, zip,
+        contact_name, location)
+     VALUES ($1,$2,$3,'PENDING',$4,$5,$6,$7,$8,$11,
              ST_SetSRID(ST_MakePoint($9,$10),4326)::geography)`,
     [
       organizationId,
@@ -50,6 +51,7 @@ export async function createOrganization(
       input.zip,
       place.lng,
       place.lat,
+      input.contactName,
     ],
   );
 

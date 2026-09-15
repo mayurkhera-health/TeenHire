@@ -147,6 +147,19 @@ export interface Application {
   status: ApplicationStatus;
   note?: string;
   createdAt: string;
+  /* §34. Present only once an organization has said it wants to talk. The
+     student receives the employer's details and decides whether to use them;
+     nothing about the student travels the other way. */
+  employer?: EmployerContact | null;
+}
+
+export interface EmployerContact {
+  organizationName: string;
+  contactName: string;
+  phone: string | null;
+  website: string | null;
+  email: string | null;
+  city: string;
 }
 
 export interface NotificationPreferences {

@@ -308,17 +308,29 @@
   letter-spacing: -0.01em;
 }
 
+/* Block, not flex, and the icon flows inline with the text.
+ *
+ * As a flex container this shredded any line containing inline markup: each
+ * text run and each <strong> became its own flex item and wrapped on its own,
+ * so a suggested opening line rendered as "there?  now a good time?" above
+ * "My name / is". Same failure as the one that produced "YesWe'll mention it"
+ * — a container whose display property quietly changes what its children are.
+ *
+ * An inline icon also sits on the first line's baseline rather than floating
+ * at the top of a wrapped paragraph, which is what was wanted anyway. */
 .fit-line {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--s2);
+  display: block;
   font-size: 14.5px;
   line-height: 1.45;
 }
 
+/* The global reset makes every svg a block, which on a block .fit-line puts
+   the tick on a line of its own. Restored to inline here so it sits beside
+   the first word, where it belongs. */
 .fit-line svg {
-  flex: none;
-  margin-top: 2px;
+  display: inline-block;
+  vertical-align: -2px;
+  margin-right: var(--s2);
 }
 
 /* When a rule fails the panel moves to the warm ground and names the one

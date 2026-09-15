@@ -177,8 +177,12 @@ export function applicationEvent(
         event,
         channel,
         headline: `${organization.name} would like to speak with you`,
-        detail: `${opportunity.title} • check your email for the next step`,
-        action: 'See it',
+        /* The old line said "check your email for the next step", inside the
+           email. §34's details live in the app, where they are attached to the
+           application they belong to and cannot be forwarded out of an inbox
+           by somebody who is not the student. */
+        detail: `${opportunity.title} • their phone number and who to ask for are in your Activity`,
+        action: 'See how to reach them',
         href,
       };
   }

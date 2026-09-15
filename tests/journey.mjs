@@ -314,6 +314,17 @@ const admin = await person('admin');
     shown.includes('Interest sent'), shown.slice(0, 300));
   check('and the student is never shown a rejection they did not get',
     !shown.includes('Went another way'));
+
+  /* §34. The loop used to stop at "check your email for the next step", with
+     no next step in any email. This is the end of it: the student can now
+     actually reach the organization that asked to speak to them. */
+  /* Matched case-insensitively: the label is uppercased in CSS, so innerText
+     returns it shouting. */
+  check('the student is given a way to reach them', /how to reach them/i.test(shown));
+  check('and is told who to ask for', /Ask for /.test(shown), shown.slice(0, 400));
+  check('and is given something to say', shown.includes('Not sure what to say?'));
+  check('and is told their own details did not travel',
+    /do not have your phone number/.test(shown));
 }
 
 await student.context.close();
