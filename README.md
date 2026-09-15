@@ -54,6 +54,13 @@ Open `http://<that-address>:3000` on the phone, same Wi-Fi. Add it to the home
 screen to see it without browser chrome, which is how it was designed to be
 read.
 
+If that page loads forever, the address is not in `allowedDevOrigins` in
+`next.config.ts`. Next refuses cross-origin development requests and the
+symptom is silent — the loading state renders and the client bundle never
+arrives, so it reads as a hang rather than as a refusal. The private ranges a
+home or office network hands out are listed there already; an unusual one has
+to be added.
+
 No database and no API keys. Everything runs from seeded data and the
 student's own device.
 
@@ -506,6 +513,45 @@ applied — they see it on their dashboard when they next look. Digest sending
 (`summaryFor` composes them; nothing schedules them) is not wired either. Both
 are deliberate: neither blocks the loop, and both would have meant writing new
 copy rather than delivering copy that already exists.
+
+## The journey test
+
+Every other suite tests one layer. SQL against TypeScript, server properties,
+delivery properties, pure composition — all of them were green while a real
+notification read "New weekends job Right here from you", and while two labels
+on one screen ran together into "YesWe'll mention it". Both were found by a
+person looking at the product, which is not something that runs twice.
+
+`npm run test:journey` is that person, written down. It drives a student, an
+employer and an admin through the whole loop in a browser at 390px, against a
+real database, with no fixtures and no backdoors:
+
+- a new arrival reaches the welcome screen, not a login
+- onboarding and browsing finish with no account and no session cookie
+- the gate stands at the first thing that leaves the device
+- the one-time code is read off the screen, the way a student reads it out of
+  their inbox — not from a log or the database
+- an employer signs up, posts, and is told their posting is in review
+- an admin verifies the organization, and the held posting goes live without
+  anyone reposting it
+- the posting reaches the student's feed
+- the employer sees a first name and never the address, ZIP or coordinates
+- the employer says yes, and the student is told
+
+It needs a dev server, because the panel that shows the one-time code renders
+only when `NODE_ENV` is not production — a production build has no way in and
+should have none.
+
+```bash
+npm run dev -- -p 3800          # in one shell
+npm run test:journey            # in another
+```
+
+It found two things on its first complete run. A signed-out admin visiting the
+console was told their address "needs to be on the admin list before you sign
+in", on a screen with nothing to sign in with — a dead end an ops person hits
+on their first day. And the cross-origin refusal above, which had been
+breaking the documented phone-testing flow silently.
 
 ## Acceptance measurements
 

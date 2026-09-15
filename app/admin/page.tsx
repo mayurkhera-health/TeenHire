@@ -2,8 +2,10 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
+import { AccountGate } from '@/components/AccountGate';
 import { DataError, DataLoading } from '@/components/DataError';
 import { Plus } from '@/components/Icons';
+import { useApp } from '@/lib/store';
 import { useAdmin, type AdminOrg } from '@/lib/useAdmin';
 import type { VerificationStatus } from '@/lib/types';
 
@@ -18,18 +20,40 @@ import type { VerificationStatus } from '@/lib/types';
 export default function AdminConsole() {
   const { marketplace, organizations, opportunities, demand, audit, loading, denied, error, reload, verify, setStatus } =
     useAdmin();
+  const { ready, signedIn, refreshAccount } = useApp();
 
-  if (loading) {
+  if (loading || !ready) {
     return <Shell><DataLoading label="Loading the console…" /></Shell>;
   }
+
+  /* Signed out and signed in as the wrong person are different problems and
+     used to share one screen. That screen said "before you sign in" and then
+     offered no way to sign in, which is a dead end an ops person hits on
+     their first day. Being on the admin list is what grants the role; the
+     gate itself grants nothing, so showing it here reveals nothing. */
+  if (denied && !signedIn) {
+    return (
+      <Shell>
+        <div className="question">
+          <h1 className="t-display" style={{ fontSize: 30 }}>Sign in to the console</h1>
+          <p className="t-meta">
+            Use the address on the admin list. Signing in does not make anyone an admin — the
+            list does, and it is not editable from here.
+          </p>
+        </div>
+        <AccountGate onDone={() => { void refreshAccount(); reload(); }} />
+      </Shell>
+    );
+  }
+
   if (denied) {
     return (
       <Shell>
         <div className="panel-ink">
           <h2 className="t-section" style={{ color: '#fff' }}>Nothing here</h2>
           <p className="t-body">
-            This console is for the operations team. If that should be you, your address needs to
-            be on the admin list before you sign in.
+            This console is for the operations team. You are signed in, but this address is not on
+            the admin list.
           </p>
         </div>
       </Shell>
