@@ -741,6 +741,24 @@ in", on a screen with nothing to sign in with — a dead end an ops person hits
 on their first day. And the cross-origin refusal above, which had been
 breaking the documented phone-testing flow silently.
 
+## The QA pass
+
+`npm run test:qa` is the student's side of the product on a phone. The journey
+test proves the loop closes; this covers the flows a teenager repeats and the
+states they hit when things are empty, wrong or interrupted — search, filters,
+saving, applying, tracking, back, deep links, sign-out — at 375x812.
+
+```bash
+npm run db:migrate && npm run db:seed
+npm run dev -- -p 3800
+npm run test:qa
+```
+
+Accessibility and layout are reported as findings rather than failures, so one
+tap-target nit cannot hide a broken apply flow. It checks horizontal overflow,
+tap-target size, accessible names on inputs, minimum text size, and computed
+contrast against the nearest painted ancestor, on every student route.
+
 ## Acceptance measurements
 
 §47 sets UX targets. Measured against the running build at 390×844:

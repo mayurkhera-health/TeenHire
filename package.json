@@ -18,7 +18,8 @@
     "test:journey": "node tests/journey.mjs",
     "db:baseline": "node scripts/migrate.mjs --baseline",
     "notify:drain": "node scripts/drain.mjs",
-    "db:check": "node scripts/check-db.mjs"
+    "db:check": "node scripts/check-db.mjs",
+    "test:qa": "node tests/qa.mjs"
   },
   "dependencies": {
     "next": "^16.3.5",
