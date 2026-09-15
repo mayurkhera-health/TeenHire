@@ -2,6 +2,7 @@ import { OPPORTUNITIES, ORGANIZATIONS } from '../lib/data';
 import { matchFeed, countBeyondRadius } from '../lib/matching';
 import { findEligible, countBeyond } from '../lib/repository';
 import { getPool } from '../lib/db';
+import { isolateFixture, seedFixture } from '../db/seed';
 import type { StudentProfile } from '../lib/types';
 
 /* Parity between the SQL read path and the in-memory rules the unit tests
@@ -33,6 +34,23 @@ const check = (label: string, ok: boolean, detail = '') => {
 };
 
 const main = async () => {
+  /* Reset to exactly the fixture first. This suite compares SQL against the
+     in-memory rules, so a row created by any other test — an admin-assisted
+     posting, an employer's own — reads as a disagreement when it is nothing
+     of the sort. That is precisely how this suite first went red. */
+  const client = await getPool().connect();
+  try {
+    await client.query('BEGIN');
+    await isolateFixture(client);
+    await seedFixture(client);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+
   for (const [placeName, loc] of Object.entries(PLACES)) {
     for (const radiusMiles of [3, 5, 10, 25]) {
       for (const age of [15, 16, 17, 18]) {
