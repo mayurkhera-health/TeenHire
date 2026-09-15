@@ -17,7 +17,8 @@
     "notify:work": "tsx scripts/notify-worker.ts",
     "test:journey": "node tests/journey.mjs",
     "db:baseline": "node scripts/migrate.mjs --baseline",
-    "notify:drain": "node scripts/drain.mjs"
+    "notify:drain": "node scripts/drain.mjs",
+    "db:check": "node scripts/check-db.mjs"
   },
   "dependencies": {
     "next": "^16.3.5",

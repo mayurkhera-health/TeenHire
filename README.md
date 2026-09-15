@@ -230,6 +230,27 @@ query.
 | `NOTIFY_REPLY_TO` | no | Replies go nowhere useful. |
 | `AUTH_DEV_CODES` | **never in production** | Ignored there anyway — it is gated on `NODE_ENV` as well — but do not set it. |
 
+### Checking a database before you trust it
+
+Every page runs a PostGIS query — distance, radius, the eligibility gate — so
+a Postgres without PostGIS is not a slower TeenHire, it is one where nothing
+works. Managed providers differ on whether the extension is available and on
+whether the role they give you may create it, and without a check that failure
+arrives during the first deploy's migration.
+
+```bash
+DATABASE_URL="postgres://..." npm run db:check
+```
+
+It answers the three questions that decide it — is PostGIS available, may this
+role install it, may this role create tables — and says what to do about each
+answer. Read-only apart from one `CREATE EXTENSION` attempt, which is rolled
+back.
+
+The role part is not hypothetical: a provider handing you a limited user
+produces a database that connects perfectly and then fails on the first
+migration. Point `db:check` at a candidate before you build anything on it.
+
 ### Fly.io
 
 `Dockerfile` and `fly.toml` are in the repo.
@@ -588,6 +609,61 @@ applied — they see it on their dashboard when they next look. Digest sending
 (`summaryFor` composes them; nothing schedules them) is not wired either. Both
 are deliberate: neither blocks the loop, and both would have meant writing new
 copy rather than delivering copy that already exists.
+
+## Testing the whole flow
+
+Two ways, and they answer different questions.
+
+**Automated** — does the loop still work?
+
+```bash
+npm run dev -- -p 3800      # in one shell
+npm run test:journey        # in another
+```
+
+26 checks, three people, about a minute. See *The journey test* below for what
+it covers.
+
+**By hand** — does it feel right? The journey test cannot tell you whether a
+sixteen-year-old understands the interest screen.
+
+```bash
+export DATABASE_URL="postgres://postgres@127.0.0.1:5433/teenhire?sslmode=disable"
+export AUTH_SECRET="local-dev-secret"
+export AUTH_DEV_CODES=1
+export ADMIN_CONTACTS="you@example.com"
+export APP_URL="http://localhost:3000"
+export NOTIFY_PROVIDER=log
+
+npm run db:migrate
+npm run db:seed
+npm run dev
+```
+
+You are three different people, so use three browser profiles or two private
+windows — one session cookie cannot be a student and an employer at once.
+
+1. **Student.** `/` → name → five questions → the feed. Nothing has asked for
+   an account yet, which is the deferred-registration bet: browse, save, and
+   only meet the gate at the first thing that leaves the device.
+2. Open something, press **I'm Interested**, and sign in. The six-digit code
+   appears on screen because `AUTH_DEV_CODES` is set and this is a dev build —
+   a production build has no path to it.
+3. **Employer.** `/employer/signup` in another profile. Create the
+   organization, post in five steps, and see the card a student will see
+   before submitting. You will be told the posting is *in review*, because a
+   posting is never more trusted than the organization behind it.
+4. **Admin.** `/admin`, signed in as an address in `ADMIN_CONTACTS`. Verify
+   the organization; everything it was holding goes live at once.
+5. **Student again.** The posting is now in the feed. Express interest.
+6. **Employer again.** *View students* — a first name, an age, a city, a
+   rounded distance. No address, no contact, no coordinates. Press **I'd like
+   to connect**.
+7. **Student again.** `/activity` says *They want to talk*.
+
+Messages are composed at each step. With `NOTIFY_PROVIDER=log` they are
+printed rather than sent; `npm run notify:work` drains the queue and shows
+each one. Step 7 is also where the product currently stops — see *Not built*.
 
 ## The journey test
 
