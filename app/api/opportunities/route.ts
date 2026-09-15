@@ -20,7 +20,7 @@ import type { StudentProfile } from '@/lib/types';
 export const dynamic = 'force-dynamic';
 
 interface OpportunitiesRequest {
-  profile: StudentProfile;
+  profile?: StudentProfile | null;
   ids?: string[];
   beyondRadius?: number;
 }
@@ -35,6 +35,24 @@ export async function POST(request: Request) {
 
   const profile = body.profile;
   const location = profile?.searchLocation;
+
+  /* A shared link, opened by somebody who has no profile on this device.
+   *
+   * They get the facts that are true of the posting whatever anyone's age or
+   * address is — and no fit, because there is nobody to fit it to. Deliberately
+   * not a redirect to onboarding: asking five questions before showing the
+   * thing a friend sent them is how a shared link stops being worth sending.
+   *
+   * Only ever by id. Without one this stays the eligible feed, which needs a
+   * profile, so there is no way to enumerate the marketplace from here. */
+  if (!profile && body.ids && body.ids.length > 0) {
+    const rows = await findManyByIds(body.ids.slice(0, 20), null);
+    return NextResponse.json({
+      items: rows.map(({ opportunity, organization }) => ({ opportunity, organization })),
+      beyond: 0,
+      public: true,
+    });
+  }
 
   if (
     !profile ||
@@ -66,7 +84,9 @@ export async function POST(request: Request) {
        number a student reads is the number the query filtered on. */
     const ranked: Ranked[] = rows.map(({ opportunity, organization, distanceMiles }) => {
       const fit = evaluateFit(opportunity, organization, profile);
-      return { opportunity, organization, fit: { ...fit, distance: distanceMiles } };
+      /* Non-null on this path: every branch above it required a profile, and
+         a profile is what gives PostGIS somewhere to measure from. */
+      return { opportunity, organization, fit: { ...fit, distance: distanceMiles ?? 0 } };
     });
 
     if (!body.ids) {

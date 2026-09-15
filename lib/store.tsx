@@ -37,6 +37,11 @@ import type {
 const LOCAL_KEY = 'teenhire.local.v2';
 
 export interface OnboardingDraft {
+  /* Where onboarding should end, when it did not start at the front door. A
+     visitor who followed a shared link came for one posting, and finishing
+     five questions at the feed instead loses them the thing they arrived for.
+     Always an internal path, checked before it is used. */
+  next?: string;
   name: string;
   age: number | null;
   searchLocation: StudentProfile['searchLocation'] | null;

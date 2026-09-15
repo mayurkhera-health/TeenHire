@@ -356,21 +356,82 @@ await scenario(
 );
 
 await scenario(
-  'Given a shared link to an opportunity, When someone opens it with no account, Then the page renders rather than redirecting them away',
+  'Given a shared link to an opportunity, When someone with no profile opens it, Then they see the posting rather than the welcome screen',
   async (page) => {
     await onboard(page);
     await page.locator('article.card').first().getByRole('link', { name: 'View' }).click();
     await page.waitForURL('**/opportunity/**');
-    const url = page.url();
+    const title = (await page.locator('h1').first().textContent()).trim();
+    const shared = page.url();
+
+    /* A friend, on their own phone, who has never opened TeenHire. */
+    const stranger = await browser.newContext({ viewport: PHONE });
+    const cold = await stranger.newPage();
+    await cold.goto(shared, { waitUntil: 'networkidle' });
+    await cold.waitForTimeout(1800);
+
+    if (!cold.url().includes('/opportunity/')) {
+      await stranger.close();
+      throw new Error(`a shared link sent a visitor with no profile to ${cold.url()}`);
+    }
+    const shownTitle = (await cold.locator('h1').first().textContent()).trim();
+    if (shownTitle !== title) {
+      await stranger.close();
+      throw new Error(`the visitor saw "${shownTitle}" rather than "${title}"`);
+    }
+
+    const body = await cold.locator('body').innerText();
+    /* The facts are there; the personalised half is not, because there is
+       nobody to personalise it for. */
+    if (!/Does this fit you/i.test(body)) {
+      await stranger.close();
+      throw new Error('no invitation to find out whether it fits');
+    }
+    for (const personal in { 'You can apply': 1, 'miles from you': 1 }) {
+      if (body.includes(personal)) {
+        await stranger.close();
+        throw new Error(`the public view claims something personal: "${personal}"`);
+      }
+    }
+    await stranger.close();
+  },
+);
+
+await scenario(
+  'Given a visitor who followed a shared link, When they finish onboarding, Then they land back on the posting they came for',
+  async (page) => {
+    await onboard(page);
+    await page.locator('article.card').first().getByRole('link', { name: 'View' }).click();
+    await page.waitForURL('**/opportunity/**');
+    const shared = page.url();
+    const id = shared.split('/opportunity/')[1];
 
     const stranger = await browser.newContext({ viewport: PHONE });
     const cold = await stranger.newPage();
-    await cold.goto(url, { waitUntil: 'networkidle' });
+    await cold.goto(shared, { waitUntil: 'networkidle' });
     await cold.waitForTimeout(1500);
+    await cold.getByRole('button', { name: /Find out if this fits me/ }).click();
+    await cold.waitForURL('**/start');
+
+    await cold.locator('#first-name').fill('Maya');
+    await cold.getByRole('button', { name: /Let.s go/ }).click();
+    await cold.waitForURL('**/onboarding/1');
+    await cold.getByRole('button', { name: '16', exact: true }).click();
+    await cold.getByRole('button', { name: 'Continue' }).click();
+    await cold.locator('input[placeholder="95050"]').fill('95050');
+    await cold.getByRole('button', { name: 'Continue' }).click();
+    await cold.getByRole('button', { name: '10 miles' }).click();
+    await cold.getByRole('button', { name: 'Continue' }).click();
+    await cold.getByRole('button', { name: 'Earn money' }).click();
+    await cold.getByRole('button', { name: 'Continue' }).click();
+    await cold.getByRole('button', { name: 'Weekends' }).click();
+    await cold.getByRole('button', { name: /Show me what.s near me/ }).click();
+    await cold.waitForTimeout(2000);
+
     const landed = cold.url();
     await stranger.close();
-    if (!landed.includes('/opportunity/')) {
-      finding('Medium', 'Deep links', `A shared opportunity link sends a visitor with no profile to ${landed} instead of the opportunity. Anything a student shares with a friend lands on the wrong screen.`);
+    if (!landed.includes(id)) {
+      throw new Error(`finished onboarding at ${landed} instead of the posting they came for`);
     }
   },
 );

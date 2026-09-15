@@ -70,7 +70,7 @@ const main = async () => {
           const tsById = new Map(matchFeed(input).map((r) => [r.opportunity.id, r.fit.distance]));
           const dbRows = await findEligible({ age, lat: loc.lat, lng: loc.lng, radiusMiles });
           const worst = Math.max(...dbRows.map((r) =>
-            Math.abs((tsById.get(r.opportunity.id) ?? 0) - r.distanceMiles)));
+            Math.abs((tsById.get(r.opportunity.id) ?? 0) - (r.distanceMiles ?? 0))));
           check(`  distances agree within 0.05mi (worst ${worst.toFixed(4)})`, worst < 0.05);
         }
 

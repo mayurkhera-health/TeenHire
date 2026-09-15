@@ -31,8 +31,9 @@ const METRES_PER_MILE = 1609.344;
 export interface FeedRow {
   opportunity: Opportunity;
   organization: Organization;
-  /* Computed by PostGIS on the sphere, not by the app. */
-  distanceMiles: number;
+  /* Computed by PostGIS on the sphere, not by the app. Null when there is
+     nobody to measure from — a shared link opened by someone with no profile. */
+  distanceMiles: number | null;
 }
 
 interface RawRow {
@@ -63,7 +64,7 @@ interface RawRow {
   org_zip: string;
   org_lat: number;
   org_lng: number;
-  distance_miles: number;
+  distance_miles: number | null;
 }
 
 const SELECT_FEED = `
@@ -124,7 +125,7 @@ function toRow(r: RawRow): FeedRow {
       about: r.org_about,
       location: { city: r.org_city, zip: r.org_zip, lat: r.org_lat, lng: r.org_lng },
     },
-    distanceMiles: Number(r.distance_miles),
+    distanceMiles: r.distance_miles === null ? null : Number(r.distance_miles),
   };
 }
 
@@ -184,14 +185,17 @@ export async function countBeyond(
 /* Named opportunities, whatever their state. Saved, Activity and a shared
    detail link all have to show something a student may no longer qualify for,
    so this one deliberately applies none of the feed's gates. */
+/* `from` may be null, for a visitor with no profile following a shared link.
+   ST_Distance against NULL is NULL, so the row comes back honestly without a
+   distance rather than with one measured from somewhere nobody is. */
 export async function findManyByIds(
   ids: string[],
-  from: { lat: number; lng: number },
+  from: { lat: number; lng: number } | null,
 ): Promise<FeedRow[]> {
   if (ids.length === 0) return [];
   const rows = await query<RawRow>(
     `${SELECT_FEED} WHERE o.id = ANY($2::text[]) ${GROUP_BY}`,
-    [point(from.lng, from.lat), ids],
+    [from ? point(from.lng, from.lat) : null, ids],
   );
   /* Returned in the order asked for — Saved is newest-first and the database
      has no opinion about that. */

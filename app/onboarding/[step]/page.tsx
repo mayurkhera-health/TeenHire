@@ -1,6 +1,7 @@
 'use client';
 
 import { notFound, useRouter } from 'next/navigation';
+import type { Route } from 'next';
 import { use, useState } from 'react';
 import { BackButton } from '@/components/Shell';
 import { Chip, ProgressRail, Tile } from '@/components/ui';
@@ -56,9 +57,27 @@ function Question({ step }: { step: number }) {
   }
 }
 
+/* Where onboarding ends.
+ *
+ * The feed, unless the student arrived from somewhere — a link a friend sent
+ * them, which is the only way `next` is ever set. Finishing at the feed in
+ * that case loses them the posting they came for, after asking five questions
+ * to earn it.
+ *
+ * Validated rather than trusted. It is read from the browser's own storage,
+ * which a determined person can edit, and a path that is allowed to start
+ * with "//" or a scheme is an open redirect — somewhere to send a teenager
+ * from a page they believe is ours. */
+function safeNext(next: string | undefined): Route | null {
+  if (!next) return null;
+  if (!next.startsWith('/') || next.startsWith('//')) return null;
+  if (!/^\/[A-Za-z0-9\-._~/]*$/.test(next)) return null;
+  return next as Route;
+}
+
 function useStepNav(step: number) {
   const router = useRouter();
-  const { completeOnboarding } = useApp();
+  const { completeOnboarding, draft, setDraft } = useApp();
 
   return () => {
     if (step < TOTAL_STEPS) {
@@ -66,7 +85,11 @@ function useStepNav(step: number) {
       return;
     }
     completeOnboarding();
-    router.replace('/discover');
+    const next = safeNext(draft.next);
+    /* Cleared either way, so a second run of onboarding on the same device
+       does not end somewhere the student has long since forgotten about. */
+    setDraft({ next: undefined });
+    router.replace(next ?? '/discover');
   };
 }
 

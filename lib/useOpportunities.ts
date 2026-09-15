@@ -19,6 +19,17 @@ export interface FeedState {
   reload: () => void;
 }
 
+/* A posting as it reaches somebody with no profile: the facts, and no fit,
+   because there is nobody to fit it to. */
+export type PublicItem = Pick<Ranked, 'opportunity' | 'organization'>;
+
+export interface PublicState {
+  item: PublicItem | null;
+  loading: boolean;
+  error: string | null;
+  reload: () => void;
+}
+
 interface Options {
   ids?: string[];
   beyondRadius?: number;
@@ -95,4 +106,55 @@ export function useOpportunities(
   const reload = useCallback(() => setNonce((n) => n + 1), []);
 
   return { items, beyond, loading, error, reload };
+}
+
+/* One opportunity, for a visitor following a shared link before they have a
+ * profile on this device — a friend's text, a cleared browser, a different
+ * phone. It shares the endpoint rather than adding a second source for the
+ * same data, and asks by id only, so nothing here can enumerate the feed. */
+export function usePublicOpportunity(id: string, enabled = true): PublicState {
+  const [item, setItem] = useState<PublicItem | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [nonce, setNonce] = useState(0);
+
+  useEffect(() => {
+    if (!enabled) {
+      setLoading(false);
+      return;
+    }
+
+    let current = true;
+    const controller = new AbortController();
+    setLoading(true);
+    setError(null);
+
+    fetch('/api/opportunities', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ ids: [id] }),
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Could not load this one');
+        return response.json() as Promise<{ items: PublicItem[] }>;
+      })
+      .then((data) => {
+        if (!current) return;
+        setItem(data.items[0] ?? null);
+        setLoading(false);
+      })
+      .catch((cause: Error) => {
+        if (!current || cause.name === 'AbortError') return;
+        setError(cause.message);
+        setLoading(false);
+      });
+
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [id, enabled, nonce]);
+
+  return { item, loading, error, reload: () => setNonce((n) => n + 1) };
 }
