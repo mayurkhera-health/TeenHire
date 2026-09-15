@@ -10,3 +10,10 @@ npm-debug.log*
 .vercel
 next-env.d.ts
 *.tsbuildinfo
+
+# Written by `next dev` on every run, with no way to switch it off. The content
+# is Next's own note to coding agents, not ours, so it is not carried in the
+# repository — ignored rather than deleted, because deleting only makes the
+# next dev server re-create it as an uncommitted change.
+AGENTS.md
+CLAUDE.md
