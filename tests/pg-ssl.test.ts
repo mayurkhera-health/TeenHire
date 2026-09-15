@@ -33,6 +33,14 @@ const CASES: [string, unknown][] = [
   ['postgres://me@db.example.com/teenhire?sslmode=verify-full', { rejectUnauthorized: true }],
   ['postgres://me@db.example.com/teenhire?sslmode=verify-ca', { rejectUnauthorized: true }],
 
+  /* Unix sockets: Cloud Run to Cloud SQL, and the Cloud SQL Auth Proxy. No
+     network to encrypt, and the first of these is not a URL new URL() will
+     even parse. */
+  ['postgres://me:pw@/teenhire?host=/cloudsql/proj:us-west1:th', false],
+  ['postgres://me:pw@localhost/teenhire?host=/cloudsql/proj:us-west1:th', false],
+  ['postgres://me:pw@/teenhire?host=%2Fcloudsql%2Fproj%3Aus-west1%3Ath', false],
+  ['postgres://me:pw@/teenhire?sslmode=disable&host=/cloudsql/x', false],
+
   /* Unreadable: hand it to pg rather than guessing. */
   ['not-a-url', undefined],
 ];

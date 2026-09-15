@@ -35,6 +35,11 @@ export function getPool(): Pool {
    image, and cannot import this. tests/pg-ssl.test.ts runs the same cases
    against both, so the app and the scripts cannot disagree about a URL. */
 export function sslFor(url: string): false | { rejectUnauthorized: boolean } | undefined {
+  /* A Unix socket — Cloud Run to Cloud SQL, or the Cloud SQL Auth Proxy. No
+     network, so no TLS. Checked before parsing: an empty authority is not a
+     URL new URL() accepts. */
+  if (/[?&]host=(%2F|\/)/i.test(url)) return false;
+
   let parsed: URL;
   try {
     parsed = new URL(url);

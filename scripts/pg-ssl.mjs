@@ -13,6 +13,18 @@
 const LOCAL = /^(localhost|127\.0\.0\.1|\[?::1\]?|0\.0\.0\.0)$/;
 
 export function sslFor(url) {
+  /* A Unix socket, which is how Cloud Run reaches Cloud SQL and how the Cloud
+     SQL Auth Proxy is usually addressed: the host is a filesystem path in a
+     query parameter rather than an authority. There is no network here, so TLS
+     is neither possible nor wanted — the socket is already inside the trust
+     boundary, and the proxy terminates TLS itself.
+
+     Checked before parsing, because a URL with an empty authority
+     (postgres://user:pw@/db?host=/cloudsql/...) is not a URL new URL() will
+     accept. That shape used to reach pg with ssl undefined and work by
+     accident; it works on purpose now. */
+  if (/[?&]host=(%2F|\/)/i.test(url)) return false;
+
   let parsed;
   try {
     parsed = new URL(url);
