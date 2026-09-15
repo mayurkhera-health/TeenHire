@@ -221,6 +221,37 @@ Nothing about the app requires a container — it is entirely client-side today,
 so a static host serves it just as well and more cheaply. The container is
 worth it once the FastAPI service lands and both halves want the same home.
 
+## The marketplace loop
+
+`§6`'s loop used to be severed in two places: an expression of interest never
+left the browser it was made in, and an employer's posting never reached the
+database. Both writes now exist, and the loop closes across two separate
+sessions on two separate devices.
+
+    student signs in  →  profile on the server
+    employer signs in →  organization created PENDING
+    employer posts    →  PENDING_REVIEW, invisible to students
+    admin verifies    →  PUBLISHED, appears in the feed
+    student taps      →  application row
+    employer opens    →  first name, age, city, rounded distance, availability
+    employer responds →  student sees EMPLOYER_INTERESTED
+
+Every step of that is exercised by `npm run test:db` and by a browser test
+that drives both halves in separate contexts.
+
+Three properties the loop depends on, each enforced in SQL rather than in a
+component that could forget:
+
+- **A posting is never more trusted than its organization.** `statusFor` reads
+  the organization's verification status, so an unverified business cannot
+  reach a student however it posts.
+- **A business cannot post volunteer work** (§51). Hidden in the wizard so
+  nobody wastes four screens on it, refused again on the server where a
+  modified request cannot get round it.
+- **The employer payload cannot carry a student's location.** The privacy
+  envelope is the `SELECT` list in `loadInterestedStudents`, and tests assert
+  the response contains no coordinates, no contact and no ZIP.
+
 ## Accounts
 
 There is no sign-up wall. A student browses, completes onboarding and saves
@@ -237,19 +268,22 @@ is both safer and fewer taps than inventing one.
 Signing out withdraws what was sent on the student's behalf. Their saved list
 and preferences are device-local and stay.
 
-### The stub is not security
+### Authentication is real now
 
-`stubAuthProvider` runs in the browser, which means the code it checks sits in
-memory next to the check. It is a seam, not a safeguard, and the code screen
-says so on the page. Everything that matters has to be enforced server-side by
-a managed provider: codes generated and compared on the server, delivered out
-of band, never returned to the client. `AuthProvider` is the interface such a
-provider implements; nothing outside that file knows which one is behind it.
+The browser stub is gone. `lib/server/auth.ts` generates the code, stores only
+a peppered SHA-256 of it, compares it in constant time, and never returns it
+to a caller in production — `npm run test:db` asserts that last point by
+checking the response with the development flag unset.
 
-The properties that get lost in that rewrite are pinned by tests: codes
-expire, attempts are capped, a spent challenge cannot be retried even with the
-correct code, resends have a cooldown, and contacts normalise so one person is
-one account.
+Sessions are rows rather than self-contained tokens, so signing out actually
+ends something; the cookie is `httpOnly` and carries the only copy of the
+secret. Codes expire after ten minutes, attempts cap at five, a spent
+challenge refuses even the code that was always correct, the resend cooldown
+is enforced server-side, and contacts normalise so one person is one account.
+
+Delivery is still missing — that is Phase 4. Until then the code is written to
+the server log, and handed back in the response only when `AUTH_DEV_CODES=1`
+and `NODE_ENV` is not production.
 
 ### Two decisions still open
 

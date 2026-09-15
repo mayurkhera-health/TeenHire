@@ -1,47 +1,57 @@
 'use client';
 
-import { notFound } from 'next/navigation';
 import { use } from 'react';
 import { BackButton, LoadingScreen } from '@/components/Shell';
-import { Cake, Clock, Pin, Tick, Dash } from '@/components/Icons';
-import { LogoTile, TypeBadge } from '@/components/ui';
-import { INTEREST_LABEL, TIMING_LABEL, timingPhrase } from '@/lib/copy';
-import { useApp } from '@/lib/store';
+import { DataError, DataLoading } from '@/components/DataError';
+import { Cake, Clock, Dash, Pin, Tick } from '@/components/Icons';
+import { LogoTile } from '@/components/ui';
+import { INTEREST_LABEL, TIMING_LABEL } from '@/lib/copy';
+import { useInterestedStudents } from '@/lib/useEmployer';
 
 /* Two buttons, not fifteen pipeline stages. And only what an organization
-   needs to decide whether to talk to someone: a first name, an age, roughly
-   how far away, when they are free. No address, no birth date, no surname. */
+   needs to decide whether to talk to someone — the server sends a first name,
+   an age, a city, a rounded distance and what they have done, because that is
+   the whole of §33's envelope and the query enforces it. */
 
 export default function ApplicantsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
-  const { ready, opportunities, organizations, applicantsFor, decideApplicant, employerOrg } = useApp();
+  const { students, loading, error, reload, respond } = useInterestedStudents(id);
 
-  if (!ready) return <LoadingScreen />;
+  if (loading) {
+    return (
+      <div className="screen">
+        <main className="page gutter console">
+          <BackButton />
+          <DataLoading label="Loading students…" />
+        </main>
+      </div>
+    );
+  }
 
-  const opportunity = opportunities.find((o) => o.id === id);
-  if (!opportunity) notFound();
-
-  const organization = organizations.find((o) => o.id === opportunity.organizationId);
-  const organizationName = organization?.name ?? employerOrg?.name ?? 'Your organization';
-  const students = applicantsFor(id);
+  if (error) {
+    return (
+      <div className="screen">
+        <main className="page gutter console">
+          <BackButton />
+          <DataError onRetry={reload} />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="screen">
       <main className="page gutter console">
         <div className="row gap-3">
           <BackButton />
-          <TypeBadge type={opportunity.type} />
         </div>
 
         <header className="stack gap-2">
-          <h1 className="t-greeting">{opportunity.title}</h1>
+          <h1 className="t-greeting">Interested students</h1>
           <p className="t-sub">
             {students.length === 0
-              ? 'No students yet'
-              : `${students.length} ${students.length === 1 ? 'student' : 'students'} interested`}
-          </p>
-          <p className="t-meta">
-            {organizationName} · {opportunity.minimumAge}+ · {timingPhrase(opportunity.timing)}
+              ? 'Nobody yet'
+              : `${students.length} ${students.length === 1 ? 'student' : 'students'}`}
           </p>
         </header>
 
@@ -57,9 +67,9 @@ export default function ApplicantsPage({ params }: { params: Promise<{ id: strin
         ) : (
           <div className="card-list" data-grid="true">
             {students.map((student) => (
-              <article className="card" key={student.id}>
+              <article className="card" key={student.applicationId}>
                 <div className="card-head">
-                  <LogoTile name={student.firstName} type={opportunity.type} />
+                  <LogoTile name={student.firstName} type="paid" />
                   <div>
                     <h2 className="t-title">{student.firstName}</h2>
                     <p className="t-meta card-org">
@@ -76,7 +86,7 @@ export default function ApplicantsPage({ params }: { params: Promise<{ id: strin
                   </span>
                   <span className="meta-item">
                     <Clock />
-                    {student.availability.map((t) => TIMING_LABEL[t]).join(', ')}
+                    {student.availability.map((t) => TIMING_LABEL[t]).join(', ') || 'Flexible'}
                   </span>
                   <span className="meta-item">
                     <Cake />
@@ -107,11 +117,15 @@ export default function ApplicantsPage({ params }: { params: Promise<{ id: strin
 
                 {student.note ? <p className="t-body">“{student.note}”</p> : null}
 
-                {student.decision ? (
-                  <div className="fit" data-eligible={student.decision === 'interested'}>
+                {student.status === 'EMPLOYER_INTERESTED' || student.status === 'NOT_SELECTED' ? (
+                  <div className="fit" data-eligible={student.status === 'EMPLOYER_INTERESTED'}>
                     <p className="fit-line">
-                      {student.decision === 'interested' ? <Tick size={16} /> : <Dash size={16} />}
-                      {student.decision === 'interested'
+                      {student.status === 'EMPLOYER_INTERESTED' ? (
+                        <Tick size={16} />
+                      ) : (
+                        <Dash size={16} />
+                      )}
+                      {student.status === 'EMPLOYER_INTERESTED'
                         ? `We've let ${student.firstName} know you'd like to speak.`
                         : `${student.firstName} has been moved out of this list.`}
                     </p>
@@ -122,14 +136,14 @@ export default function ApplicantsPage({ params }: { params: Promise<{ id: strin
                       type="button"
                       className="btn btn-primary"
                       style={{ flex: 1 }}
-                      onClick={() => decideApplicant(student.id, 'interested')}
+                      onClick={() => respond(student.applicationId, 'interested')}
                     >
-                      I'd like to connect
+                      I&rsquo;d like to connect
                     </button>
                     <button
                       type="button"
                       className="btn btn-secondary"
-                      onClick={() => decideApplicant(student.id, 'not_a_match')}
+                      onClick={() => respond(student.applicationId, 'not_a_match')}
                     >
                       Not this time
                     </button>
@@ -142,6 +156,7 @@ export default function ApplicantsPage({ params }: { params: Promise<{ id: strin
 
         <p className="t-meta">
           Students see a message tied to this opportunity — never a direct message out of the blue.
+          You never see a home address, a birthday, or where exactly a student searched from.
         </p>
       </main>
     </div>

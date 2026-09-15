@@ -13,7 +13,7 @@
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
-    "test:db": "tsx tests/parity.manual.ts"
+    "test:db": "tsx tests/parity.manual.ts && tsx tests/server.manual.ts"
   },
   "dependencies": {
     "next": "^16.3.5",

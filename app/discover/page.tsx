@@ -39,7 +39,7 @@ export default function DiscoverPage() {
 }
 
 function Discover() {
-  const { profile, opportunities, organizations, updateProfile } = useApp();
+  const { profile, updateProfile } = useApp();
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [query, setQuery] = useState('');
   const [sheetOpen, setSheetOpen] = useState(false);

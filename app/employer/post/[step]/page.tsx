@@ -1,7 +1,7 @@
 'use client';
 
 import { notFound, useRouter } from 'next/navigation';
-import { use, useMemo } from 'react';
+import { use, useMemo, useState } from 'react';
 import { BackButton } from '@/components/Shell';
 import { Chip, ProgressRail, Tile } from '@/components/ui';
 import { OpportunityCard } from '@/components/OpportunityCard';
@@ -20,7 +20,7 @@ import {
   draftToOpportunity,
   type OpportunityDraft,
 } from '@/lib/opportunityDraft';
-import { useApp } from '@/lib/store';
+import { useEmployer } from '@/lib/useEmployer';
 import type {
   Compensation,
   Experience,
@@ -102,13 +102,14 @@ function Continue({ onClick, disabled, label = 'Continue' }: { onClick: () => vo
 
 function TypeStep() {
   const { draft, set } = usePostDraft();
-  const { employerOrg } = useApp();
+  const { organization } = useEmployer();
   const next = useNext(1);
 
   /* The volunteer safety rule: a business cannot classify ordinary work as
-     volunteering. Nonprofits can; a business that genuinely needs to gets
-     there through an admin override, not through this screen. */
-  const canPostVolunteer = employerOrg?.kind !== 'business';
+     volunteering. Hidden here so nobody wastes four screens on it, and
+     refused again on the server, where a modified request cannot get round
+     it. */
+  const canPostVolunteer = organization?.kind !== 'business';
 
   return (
     <>
@@ -267,8 +268,10 @@ const COMMITMENTS: VolunteerCommitment[] = ['one_time', 'weekly', 'monthly', 'fl
 
 function PayStep() {
   const { draft, set, clear } = usePostDraft();
-  const { employerOrg, publishOpportunity } = useApp();
+  const { organization } = useEmployer();
   const router = useRouter();
+  const [posting, setPosting] = useState(false);
+  const [postError, setPostError] = useState<string | null>(null);
 
   const compensation = compensationFrom(draft);
 
@@ -278,14 +281,14 @@ function PayStep() {
 
   const previewOrganization = useMemo<Organization>(
     () => ({
-      id: 'org-preview',
-      name: employerOrg?.name ?? 'Your organization',
-      kind: employerOrg?.kind ?? 'business',
+      id: organization?.id ?? 'org-preview',
+      name: organization?.name ?? 'Your organization',
+      kind: organization?.kind ?? 'business',
       verificationStatus: 'VERIFIED',
       about: 'Your organization',
       location: DEFAULT_LOCATION,
     }),
-    [employerOrg],
+    [organization],
   );
 
   /* The form builds the same draft a voice or pasted posting would, and the
@@ -308,9 +311,39 @@ function PayStep() {
     return { ...built, schedule: draft.timing.map((t) => TIMING_LABEL[t]).join(', ') };
   }, [draft, compensation, previewOrganization.id]);
 
-  const post = () => {
-    if (!previewOpportunity) return;
-    publishOpportunity(previewOpportunity);
+  /* The posting now leaves the browser. Same draft, same converter, but the
+     server decides the status from the organization's verification — a
+     posting is never more trusted than the organization behind it. */
+  const post = async () => {
+    if (!previewOpportunity || posting) return;
+    setPosting(true);
+    setPostError(null);
+
+    const shared: OpportunityDraft = {
+      source: 'form',
+      type: draft.type,
+      title: draft.title,
+      summary: draft.summary,
+      minimumAge: draft.minimumAge,
+      experience: draft.experience,
+      timing: draft.timing,
+      hours: draft.hours,
+      compensation,
+    };
+
+    const response = await fetch('/api/employer/opportunities', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ draft: shared }),
+    });
+
+    if (!response.ok) {
+      const detail = (await response.json().catch(() => null)) as { error?: string } | null;
+      setPostError(detail?.error ?? 'Could not post that. Try again in a moment.');
+      setPosting(false);
+      return;
+    }
+
     clear();
     router.replace('/employer?posted=1');
   };
@@ -376,13 +409,25 @@ function PayStep() {
         </section>
       ) : null}
 
+      {postError ? (
+        <p className="t-meta" role="alert" style={{ color: 'var(--warn)' }}>
+          {postError}
+        </p>
+      ) : null}
+
       <div className="sticky-cta">
         <div className="sticky-cta-row">
           <button type="button" className="btn btn-secondary" onClick={() => router.push('/employer/post/2')}>
             Edit
           </button>
-          <button type="button" className="btn btn-primary" style={{ flex: 1 }} onClick={post} disabled={!previewOpportunity}>
-            Post Free
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ flex: 1 }}
+            onClick={post}
+            disabled={!previewOpportunity || posting}
+          >
+            {posting ? 'Posting…' : 'Post Free'}
           </button>
         </div>
       </div>

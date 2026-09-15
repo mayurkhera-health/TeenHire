@@ -198,7 +198,7 @@ function Me() {
             </p>
             {/* Signing out takes back what was sent on their behalf. Saying so
                 plainly matters more than the button being tidy. */}
-            <button type="button" className="btn btn-secondary btn-block" onClick={signOut}>
+            <button type="button" className="btn btn-secondary btn-block" onClick={() => void signOut()}>
               Sign out and withdraw what I&rsquo;ve sent
             </button>
           </>

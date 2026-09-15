@@ -6,38 +6,40 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
-import type { Account } from './auth';
 import { DEFAULT_LOCATION } from './geo';
-import { INTERESTED_STUDENTS, OPPORTUNITIES, ORGANIZATIONS } from './data';
+import type { Account } from './auth';
 import type {
   Application,
-  ApplicationStatus,
-  InterestedStudent,
-  Location,
+  Interest,
   NotificationPreferences,
-  Opportunity,
   OpportunityType,
-  Organization,
   StudentProfile,
   Timing,
   Transportation,
-  Interest,
 } from './types';
 
-/* V1 keeps everything on the device. The shapes below are the ones the API
-   would return, so moving to a server is a change of source, not of screens. */
+/* Client state.
+ *
+ * The server is authoritative for anything a second device or another person
+ * has to see: the account, the profile, saves, expressions of interest.
+ *
+ * One thing is deliberately still local. Onboarding happens before there is an
+ * account, because the product's first promise is that you can look around
+ * without signing up. So the draft — and the profile it produces — live in the
+ * browser until the student first expresses interest, and are pushed up at
+ * that moment. Saves made while signed out go up with them; a student who
+ * hearted three things before signing in must not lose them. */
 
-const STORAGE_KEY = 'teenhire.v1';
+const LOCAL_KEY = 'teenhire.local.v2';
 
-/* Onboarding writes into a draft, never into the profile. A student who
-   backs out halfway has not created anything. */
 export interface OnboardingDraft {
   name: string;
   age: number | null;
-  searchLocation: Location | null;
+  searchLocation: StudentProfile['searchLocation'] | null;
   radiusMiles: number | null;
   types: OpportunityType[];
   availability: Timing[];
@@ -56,127 +58,163 @@ export const EMPTY_DRAFT: OnboardingDraft = {
   transportation: [],
 };
 
-export interface EmployerOrg {
-  name: string;
-  kind: 'business' | 'nonprofit';
-  website: string;
-  contactName: string;
-  email: string;
-  /* §34 asks for these because they are what a human reviewer actually
-     checks. A posting with no address and no phone cannot be verified. */
-  phone: string;
-  city: string;
-  zip: string;
+interface LocalState {
+  draft: OnboardingDraft;
+  /* Only used before an account exists. Once signed in the server wins. */
+  profile: StudentProfile | null;
+  saved: string[];
+  notifications: NotificationPreferences;
 }
 
-interface PersistedState {
-  /* Null until the student first expresses interest. Browsing, onboarding and
-     saving all work without one — the gate is at the moment something is sent
-     on their behalf, not at the front door. */
+const INITIAL_LOCAL: LocalState = {
+  draft: EMPTY_DRAFT,
+  profile: null,
+  saved: [],
+  notifications: { types: ['paid', 'internship', 'volunteer'], frequency: 'daily' },
+};
+
+interface AppValue {
+  ready: boolean;
   account: Account | null;
   profile: StudentProfile | null;
   draft: OnboardingDraft;
   saved: string[];
   applications: Application[];
   notifications: NotificationPreferences;
-  employerOrg: EmployerOrg | null;
-  employerPosts: Opportunity[];
-  applicantDecisions: Record<string, 'interested' | 'not_a_match'>;
-}
+  signedIn: boolean;
 
-const INITIAL: PersistedState = {
-  account: null,
-  profile: null,
-  draft: EMPTY_DRAFT,
-  saved: [],
-  applications: [],
-  notifications: { types: ['paid', 'internship', 'volunteer'], frequency: 'daily' },
-  employerOrg: null,
-  employerPosts: [],
-  applicantDecisions: {},
-};
-
-interface AppValue extends PersistedState {
-  /* False until localStorage has been read, so nothing renders a signed-out
-     state for a split second and then swaps it. */
-  ready: boolean;
-  organizations: Organization[];
-  opportunities: Opportunity[];
-  signIn: (account: Account) => void;
-  signOut: () => void;
   setDraft: (patch: Partial<OnboardingDraft>) => void;
   completeOnboarding: () => void;
   updateProfile: (patch: Partial<StudentProfile>) => void;
   toggleSaved: (id: string) => void;
   isSaved: (id: string) => boolean;
-  expressInterest: (id: string, note?: string) => void;
+  expressInterest: (id: string, note?: string) => Promise<{ ok: boolean; error?: string }>;
   withdrawInterest: (id: string) => void;
   applicationFor: (id: string) => Application | undefined;
   setNotifications: (patch: Partial<NotificationPreferences>) => void;
-  setEmployerOrg: (org: EmployerOrg) => void;
-  publishOpportunity: (opportunity: Opportunity) => void;
-  decideApplicant: (studentId: string, decision: 'interested' | 'not_a_match') => void;
-  applicantsFor: (opportunityId: string) => InterestedStudent[];
+  refreshAccount: () => Promise<void>;
+  signOut: () => Promise<void>;
   reset: () => void;
 }
 
 const AppContext = createContext<AppValue | null>(null);
 
-function read(): PersistedState {
-  if (typeof window === 'undefined') return INITIAL;
+function readLocal(): LocalState {
+  if (typeof window === 'undefined') return INITIAL_LOCAL;
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return INITIAL;
-    return { ...INITIAL, ...(JSON.parse(raw) as Partial<PersistedState>) };
+    const raw = window.localStorage.getItem(LOCAL_KEY);
+    return raw ? { ...INITIAL_LOCAL, ...(JSON.parse(raw) as Partial<LocalState>) } : INITIAL_LOCAL;
   } catch {
-    /* A corrupt or blocked store should start a student over, not break
-       the app on the first screen they see. */
-    return INITIAL;
+    return INITIAL_LOCAL;
   }
 }
 
-export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, setState] = useState<PersistedState>(INITIAL);
-  const [ready, setReady] = useState(false);
+const json = (url: string, method: string, body?: unknown) =>
+  fetch(url, {
+    method,
+    headers: { 'content-type': 'application/json' },
+    ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+  });
 
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [local, setLocal] = useState<LocalState>(INITIAL_LOCAL);
+  const [account, setAccount] = useState<Account | null>(null);
+  const [serverProfile, setServerProfile] = useState<StudentProfile | null>(null);
+  const [serverSaved, setServerSaved] = useState<string[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [ready, setReady] = useState(false);
+  const syncedRef = useRef(false);
+
+  /* Boot: read what the browser remembers, then ask the server who we are.
+     The local read is synchronous so a signed-out student sees their own
+     onboarding immediately rather than a flash of the welcome screen. */
   useEffect(() => {
-    setState(read());
-    setReady(true);
+    const stored = readLocal();
+    setLocal(stored);
+
+    (async () => {
+      try {
+        const response = await fetch('/api/auth/me');
+        const data = (await response.json()) as {
+          user: { id: string; contact: string; method: string; role: string } | null;
+          profile: StudentProfile | null;
+        };
+        if (data.user) {
+          setAccount({
+            id: data.user.id,
+            contact: data.user.contact,
+            method: data.user.method as Account['method'],
+            createdAt: '',
+            verifiedAt: '',
+          });
+          setServerProfile(data.profile);
+        }
+      } catch {
+        /* Signed out, or the server is unreachable. Either way the student can
+           still browse — the feed reports its own failure. */
+      } finally {
+        setReady(true);
+      }
+    })();
   }, []);
 
   useEffect(() => {
     if (!ready) return;
     try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      window.localStorage.setItem(LOCAL_KEY, JSON.stringify(local));
     } catch {
-      /* Private browsing and full quotas both land here. The session keeps
-         working; it just will not survive a reload. */
+      /* Private browsing. The session keeps working; it just will not survive
+         a reload until the student signs in. */
     }
-  }, [state, ready]);
+  }, [local, ready]);
 
-  const patch = useCallback((next: Partial<PersistedState>) => {
-    setState((current) => ({ ...current, ...next }));
+  const signedIn = account !== null;
+  const profile = signedIn ? serverProfile ?? local.profile : local.profile;
+  const saved = signedIn ? serverSaved : local.saved;
+
+  const pullServerState = useCallback(async () => {
+    const [savedResponse, interestResponse] = await Promise.all([
+      fetch('/api/me/saved'),
+      fetch('/api/interests'),
+    ]);
+    if (savedResponse.ok) setServerSaved(((await savedResponse.json()) as { saved: string[] }).saved);
+    if (interestResponse.ok) {
+      const data = (await interestResponse.json()) as { applications: Application[] };
+      setApplications(data.applications);
+    }
   }, []);
 
-  const signIn = useCallback((account: Account) => {
-    setState((current) => ({ ...current, account }));
-  }, []);
+  /* The moment an account appears, everything gathered while signed out is
+     carried up. Doing it once is guarded by a ref rather than state so a slow
+     network cannot cause it twice. */
+  useEffect(() => {
+    if (!signedIn || syncedRef.current) return;
+    syncedRef.current = true;
 
-  /* Signing out takes away what was sent on this student's behalf, because
-     that is what the account was for. What they were browsing — their
-     preferences and their saved list — is device-local and stays. */
-  const signOut = useCallback(() => {
-    setState((current) => ({ ...current, account: null, applications: [] }));
-  }, []);
+    (async () => {
+      if (!serverProfile && local.profile) {
+        await json('/api/me/profile', 'PUT', { profile: local.profile });
+        const response = await fetch('/api/auth/me');
+        if (response.ok) {
+          setServerProfile(((await response.json()) as { profile: StudentProfile | null }).profile);
+        }
+      }
+      for (const id of local.saved) {
+        await json('/api/me/saved', 'POST', { opportunityId: id });
+      }
+      await pullServerState();
+      setLocal((current) => ({ ...current, saved: [] }));
+    })();
+  }, [signedIn, serverProfile, local.profile, local.saved, pullServerState]);
 
-  const setDraft = useCallback((next: Partial<OnboardingDraft>) => {
-    setState((current) => ({ ...current, draft: { ...current.draft, ...next } }));
+  const setDraft = useCallback((patch: Partial<OnboardingDraft>) => {
+    setLocal((current) => ({ ...current, draft: { ...current.draft, ...patch } }));
   }, []);
 
   const completeOnboarding = useCallback(() => {
-    setState((current) => {
+    setLocal((current) => {
       const { draft } = current;
-      const profile: StudentProfile = {
+      const built: StudentProfile = {
         name: draft.name.trim() || 'there',
         age: draft.age ?? 16,
         searchLocation: draft.searchLocation ?? DEFAULT_LOCATION,
@@ -188,128 +226,147 @@ export function AppProvider({ children }: { children: ReactNode }) {
         skills: [],
         thingsDone: [],
       };
-      return { ...current, profile };
+      return { ...current, profile: built };
     });
   }, []);
 
-  const updateProfile = useCallback((next: Partial<StudentProfile>) => {
-    setState((current) =>
-      current.profile ? { ...current, profile: { ...current.profile, ...next } } : current,
-    );
-  }, []);
-
-  const toggleSaved = useCallback((id: string) => {
-    setState((current) => ({
-      ...current,
-      saved: current.saved.includes(id)
-        ? current.saved.filter((s) => s !== id)
-        : [id, ...current.saved],
-    }));
-  }, []);
-
-  const expressInterest = useCallback((id: string, note?: string) => {
-    setState((current) => {
-      if (current.applications.some((a) => a.opportunityId === id && a.status !== 'WITHDRAWN')) {
-        return current;
+  const updateProfile = useCallback(
+    (patch: Partial<StudentProfile>) => {
+      const next = { ...(profile as StudentProfile), ...patch };
+      if (signedIn) {
+        setServerProfile(next);
+        void json('/api/me/profile', 'PUT', { profile: next });
+      } else {
+        setLocal((current) => ({ ...current, profile: next }));
       }
-      const application: Application = {
-        opportunityId: id,
-        status: 'INTERESTED',
-        note,
-        createdAt: new Date().toISOString(),
-      };
-      return {
-        ...current,
-        applications: [
-          application,
-          ...current.applications.filter((a) => a.opportunityId !== id),
-        ],
-      };
-    });
-  }, []);
+    },
+    [profile, signedIn],
+  );
 
-  const withdrawInterest = useCallback((id: string) => {
-    setState((current) => ({
-      ...current,
-      applications: current.applications.map((a) =>
-        a.opportunityId === id ? { ...a, status: 'WITHDRAWN' as ApplicationStatus } : a,
-      ),
-    }));
-  }, []);
+  const toggleSaved = useCallback(
+    (id: string) => {
+      if (signedIn) {
+        /* Optimistic: a heart that waits on a round trip feels broken. */
+        setServerSaved((current) =>
+          current.includes(id) ? current.filter((s) => s !== id) : [id, ...current],
+        );
+        void json('/api/me/saved', 'POST', { opportunityId: id });
+      } else {
+        setLocal((current) => ({
+          ...current,
+          saved: current.saved.includes(id)
+            ? current.saved.filter((s) => s !== id)
+            : [id, ...current.saved],
+        }));
+      }
+    },
+    [signedIn],
+  );
 
-  const setNotifications = useCallback((next: Partial<NotificationPreferences>) => {
-    setState((current) => ({ ...current, notifications: { ...current.notifications, ...next } }));
-  }, []);
+  const expressInterest = useCallback(
+    async (id: string, note?: string) => {
+      const response = await json('/api/interests', 'POST', { opportunityId: id, note });
+      const data = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) return { ok: false, error: data.error ?? 'Could not send that' };
+      await pullServerState();
+      return { ok: true };
+    },
+    [pullServerState],
+  );
 
-  const publishOpportunity = useCallback((opportunity: Opportunity) => {
-    setState((current) => ({ ...current, employerPosts: [opportunity, ...current.employerPosts] }));
-  }, []);
-
-  const decideApplicant = useCallback(
-    (studentId: string, decision: 'interested' | 'not_a_match') => {
-      setState((current) => ({
-        ...current,
-        applicantDecisions: { ...current.applicantDecisions, [studentId]: decision },
-      }));
+  const withdrawInterest = useCallback(
+    (id: string) => {
+      setApplications((current) =>
+        current.map((a) => (a.opportunityId === id ? { ...a, status: 'WITHDRAWN' } : a)),
+      );
+      void json('/api/interests', 'DELETE', { opportunityId: id });
     },
     [],
   );
 
-  const value = useMemo<AppValue>(() => {
-    /* An employer's own drafts sit alongside the seeded set so the preview
-       they approved is literally the card a student then sees. */
-    const opportunities = [...state.employerPosts, ...OPPORTUNITIES];
+  const refreshAccount = useCallback(async () => {
+    const response = await fetch('/api/auth/me');
+    if (!response.ok) return;
+    const data = (await response.json()) as {
+      user: { id: string; contact: string; method: string } | null;
+      profile: StudentProfile | null;
+    };
+    if (data.user) {
+      setAccount({
+        id: data.user.id,
+        contact: data.user.contact,
+        method: data.user.method as Account['method'],
+        createdAt: '',
+        verifiedAt: '',
+      });
+      setServerProfile(data.profile);
+    }
+  }, []);
 
-    return {
-      ...state,
+  const signOut = useCallback(async () => {
+    await json('/api/auth/signout', 'POST');
+    syncedRef.current = false;
+    setAccount(null);
+    setServerProfile(null);
+    setServerSaved([]);
+    setApplications([]);
+  }, []);
+
+  const value = useMemo<AppValue>(
+    () => ({
       ready,
-      organizations: ORGANIZATIONS,
-      opportunities,
-      signIn,
-      signOut,
+      account,
+      profile,
+      draft: local.draft,
+      saved,
+      applications,
+      notifications: local.notifications,
+      signedIn,
       setDraft,
       completeOnboarding,
       updateProfile,
       toggleSaved,
-      isSaved: (id) => state.saved.includes(id),
+      isSaved: (id) => saved.includes(id),
       expressInterest,
       withdrawInterest,
       applicationFor: (id) =>
-        state.applications.find((a) => a.opportunityId === id && a.status !== 'WITHDRAWN'),
-      setNotifications,
-      setEmployerOrg: (org) => patch({ employerOrg: org }),
-      publishOpportunity,
-      decideApplicant,
-      applicantsFor: (opportunityId) =>
-        (INTERESTED_STUDENTS[opportunityId] ?? []).map((s) => ({
-          ...s,
-          decision: state.applicantDecisions[s.id],
+        applications.find((a) => a.opportunityId === id && a.status !== 'WITHDRAWN'),
+      setNotifications: (patch) =>
+        setLocal((current) => ({
+          ...current,
+          notifications: { ...current.notifications, ...patch },
         })),
+      refreshAccount,
+      signOut,
       reset: () => {
         try {
-          window.localStorage.removeItem(STORAGE_KEY);
+          window.localStorage.removeItem(LOCAL_KEY);
         } catch {
           /* Nothing to clear if the store was never writable. */
         }
-        setState(INITIAL);
+        setLocal(INITIAL_LOCAL);
+        void signOut();
       },
-    };
-  }, [
-    state,
-    ready,
-    patch,
-    signIn,
-    signOut,
-    setDraft,
-    completeOnboarding,
-    updateProfile,
-    toggleSaved,
-    expressInterest,
-    withdrawInterest,
-    setNotifications,
-    publishOpportunity,
-    decideApplicant,
-  ]);
+    }),
+    [
+      ready,
+      account,
+      profile,
+      local.draft,
+      local.notifications,
+      saved,
+      applications,
+      signedIn,
+      setDraft,
+      completeOnboarding,
+      updateProfile,
+      toggleSaved,
+      expressInterest,
+      withdrawInterest,
+      refreshAccount,
+      signOut,
+    ],
+  );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;
 }

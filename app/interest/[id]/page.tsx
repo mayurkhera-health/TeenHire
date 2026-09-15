@@ -34,6 +34,8 @@ function Interest({ id }: { id: string }) {
   const router = useRouter();
   const [note, setNote] = useState('');
   const [sent, setSent] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [sendError, setSendError] = useState<string | null>(null);
 
   if (!profile) return <LoadingScreen />;
 
@@ -78,8 +80,19 @@ function Interest({ id }: { id: string }) {
         ? "You've done something like this before"
         : 'This would be a first — which is fine here';
 
-  const send = () => {
-    expressInterest(opportunity.id, note.trim() || undefined);
+  /* The send now goes to the server and can fail — the opportunity may have
+     been filled or withdrawn while the student was typing. Claiming it was
+     sent when it was not is the one outcome this screen must never produce. */
+  const send = async () => {
+    if (sending) return;
+    setSending(true);
+    setSendError(null);
+    const result = await expressInterest(opportunity.id, note.trim() || undefined);
+    setSending(false);
+    if (!result.ok) {
+      setSendError(result.error ?? 'Could not send that just now');
+      return;
+    }
     setSent(true);
   };
 
@@ -236,9 +249,15 @@ function Interest({ id }: { id: string }) {
         </section>
       </main>
 
+      {sendError ? (
+        <p className="t-meta" role="alert" style={{ color: 'var(--warn)' }}>
+          {sendError}
+        </p>
+      ) : null}
+
       <div className="sticky-cta">
-        <button type="button" className="btn btn-primary btn-block" onClick={send}>
-          Send My Interest
+        <button type="button" className="btn btn-primary btn-block" onClick={send} disabled={sending}>
+          {sending ? 'Sending…' : 'Send My Interest'}
         </button>
       </div>
     </div>

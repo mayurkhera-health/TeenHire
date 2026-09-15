@@ -1,19 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense, useEffect } from 'react';
+import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { LoadingScreen } from '@/components/Shell';
+import { useEffect } from 'react';
+import { DataError, DataLoading } from '@/components/DataError';
 import { Plus } from '@/components/Icons';
 import { LogoTile, TypeBadge } from '@/components/ui';
 import { payHeadline, timingPhrase } from '@/lib/copy';
-import { INTERESTED_STUDENTS, OPPORTUNITIES, ORGANIZATIONS } from '@/lib/data';
-import { useApp } from '@/lib/store';
-import type { Opportunity, OpportunityStatus } from '@/lib/types';
+import { useEmployer } from '@/lib/useEmployer';
+import type { Compensation, OpportunityStatus, OpportunityType, Timing } from '@/lib/types';
 
 /* The console answers two questions and no others: what do I have open, and
-   who is interested. Students appear as cards here too — the data-dense
-   layout this screen is allowed to use stops at the listings. */
+   who is interested. Both now come from the database, so the numbers are real
+   people rather than a fixture. */
 
 const STATUS_COPY: Record<OpportunityStatus, string> = {
   DRAFT: 'Draft',
@@ -26,27 +26,53 @@ const STATUS_COPY: Record<OpportunityStatus, string> = {
 };
 
 export default function EmployerHome() {
-  const { ready, employerOrg, employerPosts } = useApp();
+  const { organization, postings, loading, error, reload } = useEmployer();
   const router = useRouter();
 
   useEffect(() => {
-    if (ready && !employerOrg) router.replace('/employer/signup');
-  }, [ready, employerOrg, router]);
+    if (!loading && !error && !organization) router.replace('/employer/signup');
+  }, [loading, error, organization, router]);
 
-  if (!ready || !employerOrg) return <LoadingScreen />;
+  if (loading) {
+    return (
+      <div className="screen">
+        <main className="page gutter console">
+          <DataLoading label="Loading your opportunities…" />
+        </main>
+      </div>
+    );
+  }
 
-  const samples = OPPORTUNITIES.filter((o) => (INTERESTED_STUDENTS[o.id] ?? []).length > 0);
+  if (error) {
+    return (
+      <div className="screen">
+        <main className="page gutter console">
+          <DataError onRetry={reload} />
+        </main>
+      </div>
+    );
+  }
+
+  if (!organization) {
+    return (
+      <div className="screen">
+        <main className="page gutter console">
+          <DataLoading label="One moment…" />
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="screen">
       <main className="page gutter console">
         <header className="stack gap-2">
-          <span className="t-eyebrow">{employerOrg.name}</span>
+          <span className="t-eyebrow">{organization.name}</span>
           <h1 className="t-greeting">Your opportunities</h1>
         </header>
 
         <Suspense fallback={null}>
-          <JustPosted />
+          <JustPosted verified={organization.verificationStatus === 'VERIFIED'} />
         </Suspense>
 
         <div className="console-grid">
@@ -54,13 +80,13 @@ export default function EmployerHome() {
             <Link href="/employer" className="btn btn-secondary btn-block">
               Opportunities
             </Link>
-            <Link href="/discover" className="btn btn-tertiary">
+            <Link href="/discover" className="btn btn-tertiary btn-inline">
               See the student view
             </Link>
           </nav>
 
           <div className="stack gap-5">
-            {employerPosts.length === 0 ? (
+            {postings.length === 0 ? (
               <div className="panel-ink">
                 <h2 className="t-section" style={{ color: '#fff' }}>
                   Nothing posted yet
@@ -76,39 +102,51 @@ export default function EmployerHome() {
             ) : (
               <section className="section">
                 <div className="card-list" data-grid="true">
-                  {employerPosts.map((opportunity) => (
-                    <PostingCard
-                      key={opportunity.id}
-                      opportunity={opportunity}
-                      organizationName={employerOrg.name}
-                      interested={0}
-                    />
+                  {postings.map((posting) => (
+                    <article className="card" key={posting.id}>
+                      <div className="card-head">
+                        <LogoTile
+                          name={organization.name}
+                          type={posting.type as OpportunityType}
+                        />
+                        <div>
+                          <h3 className="t-title card-title">{posting.title}</h3>
+                          <p className="t-meta card-org">
+                            {posting.minimumAge}+ · {timingPhrase(posting.timing as Timing[])}
+                          </p>
+                        </div>
+                        <span />
+                      </div>
+
+                      <div className="meta-row">
+                        <TypeBadge type={posting.type as OpportunityType} />
+                        <span className="meta-item">
+                          {payHeadline(posting.compensation as Compensation)}
+                        </span>
+                        <span className="meta-item">
+                          {STATUS_COPY[posting.status as OpportunityStatus]}
+                        </span>
+                      </div>
+
+                      <p className="t-body">
+                        {posting.interested === 0
+                          ? 'Nobody yet — most postings see their first student within a few days.'
+                          : `${posting.interested} ${
+                              posting.interested === 1 ? 'student is' : 'students are'
+                            } interested.`}
+                      </p>
+
+                      <Link
+                        href={`/employer/opportunity/${posting.id}`}
+                        className="btn btn-primary btn-block"
+                      >
+                        View students
+                      </Link>
+                    </article>
                   ))}
                 </div>
               </section>
             )}
-
-            <section className="section">
-              <div className="section-head">
-                <h2 className="t-section">See how applicants arrive</h2>
-              </div>
-              <p className="t-meta">
-                These are sample listings from other organizations, here so you can see what the
-                interested-students view looks like before you have one of your own.
-              </p>
-              <div className="card-list" data-grid="true">
-                {samples.map((opportunity) => (
-                  <PostingCard
-                    key={opportunity.id}
-                    opportunity={opportunity}
-                    organizationName={
-                      ORGANIZATIONS.find((o) => o.id === opportunity.organizationId)?.name ?? ''
-                    }
-                    interested={(INTERESTED_STUDENTS[opportunity.id] ?? []).length}
-                  />
-                ))}
-              </div>
-            </section>
           </div>
         </div>
       </main>
@@ -123,72 +161,22 @@ export default function EmployerHome() {
   );
 }
 
-/* §30 wants a confirmation that gives the employer immediate value. It says
-   "You're live" — which would be a lie here, because this organization has
-   not been verified yet and its posting is queued behind that. The screen
-   says what actually happened instead, and says when it changes. */
-function JustPosted() {
+/* §30 wants a confirmation that gives the employer immediate value. What it
+   says depends on something true: a verified organization's posting is live,
+   an unverified one's is queued behind its review. */
+function JustPosted({ verified }: { verified: boolean }) {
   const params = useSearchParams();
   if (params.get('posted') !== '1') return null;
 
   return (
     <div className="fit">
-      <h2 className="fit-heading">Sent for review</h2>
+      <h2 className="fit-heading">{verified ? "You're live" : 'Sent for review'}</h2>
       <p className="fit-line">
-        We check new organizations by hand, usually the same day. The moment you are verified this
-        goes live and students nearby start seeing it.
+        {verified
+          ? 'Students nearby can see this now, and it will start showing up in their feed.'
+          : 'We check new organizations by hand, usually the same day. The moment you are verified this goes live.'}
       </p>
       <p className="fit-line">You will get an email either way.</p>
     </div>
-  );
-}
-
-function PostingCard({
-  opportunity,
-  organizationName,
-  interested,
-}: {
-  opportunity: Opportunity;
-  organizationName: string;
-  interested: number;
-}) {
-  return (
-    <article className="card">
-      <div className="card-head">
-        <LogoTile name={organizationName} type={opportunity.type} />
-        <div>
-          <h3 className="t-title card-title">{opportunity.title}</h3>
-          <p className="t-meta card-org">
-            {opportunity.minimumAge}+ · {timingPhrase(opportunity.timing)}
-          </p>
-        </div>
-        <span />
-      </div>
-
-      <div className="meta-row">
-        <TypeBadge type={opportunity.type} />
-        <span className="meta-item">{payHeadline(opportunity.compensation)}</span>
-        <span className="meta-item">{STATUS_COPY[opportunity.status]}</span>
-      </div>
-
-      <p className="t-body">
-        {interested === 0
-          ? 'Nobody yet — most postings see their first student within a few days.'
-          : `${interested} ${interested === 1 ? 'student is' : 'students are'} interested.`}
-      </p>
-
-      <div className="sticky-cta-row">
-        <Link
-          href={`/employer/opportunity/${opportunity.id}`}
-          className="btn btn-primary"
-          style={{ flex: 1 }}
-        >
-          View students
-        </Link>
-        <Link href="/employer/post/1" className="btn btn-secondary">
-          Edit
-        </Link>
-      </div>
-    </article>
   );
 }
