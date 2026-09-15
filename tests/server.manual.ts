@@ -43,6 +43,7 @@ async function main() {
     );
   }
 
+  await query('DELETE FROM notification_deliveries');
   await query('DELETE FROM audit_log');
   await query('DELETE FROM events');
   await query('DELETE FROM applications');

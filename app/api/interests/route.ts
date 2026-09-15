@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createInterest, loadApplications, withdrawInterest } from '@/lib/server/applications';
+import { onInterestSubmitted } from '@/lib/server/triggers';
 import { record } from '@/lib/server/events';
 import { currentUser } from '@/lib/server/session';
 
@@ -34,6 +35,7 @@ export async function POST(request: Request) {
       opportunityId: body.opportunityId,
       props: { hasNote: note !== null },
     });
+    await onInterestSubmitted(result.applicationId);
   }
   return NextResponse.json(result);
 }

@@ -1,5 +1,6 @@
 import { query } from '../db';
 import { record } from './events';
+import { onOpportunityPublished } from './triggers';
 import { currentUser } from './session';
 import { isAdminContact } from './auth';
 import type { SessionUser } from './auth';
@@ -110,6 +111,10 @@ export async function setVerification(
     published = rows.length;
     for (const row of rows) {
       await record('OPPORTUNITY_PUBLISHED', { organizationId, opportunityId: row.id });
+      /* The busiest publish point in the product: an organization is checked
+         once and everything it was holding reaches students at the same
+         moment. */
+      await onOpportunityPublished(row.id);
     }
     await record('ORGANIZATION_VERIFIED', { userId: actor.id, organizationId });
   }

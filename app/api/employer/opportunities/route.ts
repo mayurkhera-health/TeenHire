@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { record } from '@/lib/server/events';
+import { onOpportunityPublished } from '@/lib/server/triggers';
 import { createOpportunity, listPostings, organizationForUser } from '@/lib/server/organizations';
 import { currentUser } from '@/lib/server/session';
 import { draftToOpportunity, type OpportunityDraft } from '@/lib/opportunityDraft';
@@ -52,6 +53,7 @@ export async function POST(request: Request) {
   });
   if (status === 'PUBLISHED') {
     await record('OPPORTUNITY_PUBLISHED', { organizationId: org.id, opportunityId: id });
+    await onOpportunityPublished(id);
   }
 
   return NextResponse.json({ id, status });

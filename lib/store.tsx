@@ -202,10 +202,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       for (const id of local.saved) {
         await json('/api/me/saved', 'POST', { opportunityId: id });
       }
+      /* Preferences have to travel too. They used to live only here, which was
+         harmless while nothing sent anything — the browser was the only reader.
+         The sender runs on the server and cannot see localStorage, so a
+         student who switched notifications off before signing up would have
+         started receiving them. */
+      await json('/api/me/notifications', 'PUT', { preferences: local.notifications });
       await pullServerState();
       setLocal((current) => ({ ...current, saved: [] }));
     })();
-  }, [signedIn, serverProfile, local.profile, local.saved, pullServerState]);
+  }, [signedIn, serverProfile, local.profile, local.saved, local.notifications, pullServerState]);
 
   const setDraft = useCallback((patch: Partial<OnboardingDraft>) => {
     setLocal((current) => ({ ...current, draft: { ...current.draft, ...patch } }));
@@ -332,10 +338,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       applicationFor: (id) =>
         applications.find((a) => a.opportunityId === id && a.status !== 'WITHDRAWN'),
       setNotifications: (patch) =>
-        setLocal((current) => ({
-          ...current,
-          notifications: { ...current.notifications, ...patch },
-        })),
+        setLocal((current) => {
+          const next = { ...current.notifications, ...patch };
+          /* Written through for a signed-in student. The local copy stays so
+             the toggle responds instantly and so a student who has not made an
+             account yet still has somewhere to keep the answer. */
+          if (signedIn) void json('/api/me/notifications', 'PUT', { preferences: next });
+          return { ...current, notifications: next };
+        }),
       refreshAccount,
       signOut,
       reset: () => {

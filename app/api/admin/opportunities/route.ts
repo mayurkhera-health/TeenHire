@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { adminOr404 } from '@/lib/server/adminGuard';
 import { record } from '@/lib/server/events';
+import { onOpportunityPublished } from '@/lib/server/triggers';
 import { createOpportunity } from '@/lib/server/organizations';
 import { draftToOpportunity, type OpportunityDraft } from '@/lib/opportunityDraft';
 import { query } from '@/lib/db';
@@ -85,6 +86,7 @@ export async function POST(request: Request) {
   });
   if (status === 'PUBLISHED') {
     await record('OPPORTUNITY_PUBLISHED', { organizationId: body.organizationId, opportunityId: id });
+    await onOpportunityPublished(id);
   }
 
   return NextResponse.json({ id, status });

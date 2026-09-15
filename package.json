@@ -6,14 +6,15 @@
   "scripts": {
     "dev": "next dev",
     "dev:lan": "next dev -H 0.0.0.0",
-    "db:migrate": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f db/migrations/001_init.sql",
+    "db:migrate": "for f in db/migrations/*.sql; do psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f \"$f\" || exit 1; done",
     "db:seed": "tsx db/seed.ts",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test tests/*.test.ts",
-    "test:db": "tsx tests/parity.manual.ts && tsx tests/server.manual.ts"
+    "test:db": "tsx tests/parity.manual.ts && tsx tests/server.manual.ts && tsx tests/delivery.manual.ts",
+    "notify:work": "tsx scripts/notify-worker.ts"
   },
   "dependencies": {
     "next": "^16.3.5",

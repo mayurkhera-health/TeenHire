@@ -6,6 +6,7 @@ import {
 } from '@/lib/server/applications';
 import { record } from '@/lib/server/events';
 import { employerFor } from '@/lib/server/employerGuard';
+import { onApplicationsViewed, onEmployerInterested } from '@/lib/server/triggers';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,6 +22,7 @@ export async function GET(_request: Request, ctx: { params: Promise<{ id: string
   const students = await loadInterestedStudents(id);
   if (students.length > 0) {
     await markViewed(id);
+    await onApplicationsViewed(id);
     await record('INTEREST_VIEWED', {
       userId: g.user.id,
       organizationId: g.org.id,
@@ -46,6 +48,8 @@ export async function POST(request: Request, ctx: { params: Promise<{ id: string
   const status = body.decision === 'interested' ? 'EMPLOYER_INTERESTED' : 'NOT_SELECTED';
   const updated = await respondToApplicant(body.applicationId, g.org.id, status);
   if (!updated) return NextResponse.json({ error: 'Not found' }, { status: 404 });
+
+  if (status === 'EMPLOYER_INTERESTED') await onEmployerInterested(body.applicationId);
 
   await record('EMPLOYER_RESPONDED', {
     userId: g.user.id,

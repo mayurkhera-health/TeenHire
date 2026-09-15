@@ -82,6 +82,65 @@ describe('matchingEvent', () => {
   });
 });
 
+/* These exist because the suite above passed on copy that read
+   "New weekends job Right here from you". Matching /from you$/ was true of a
+   broken sentence, so the assertions now describe the sentence rather than
+   its ending. */
+describe('headlines read as sentences', () => {
+  it('uses an adjective, not a chip label, for the timing', () => {
+    const n = matchingEvent(input, 'opp-smoothie', prefs());
+    assert.ok(n);
+    assert.ok(!/\bweekends\b/.test(n.headline), `chip label leaked: ${n.headline}`);
+  });
+
+  it('drops the timing when several apply rather than joining them', () => {
+    for (const opportunity of OPPORTUNITIES) {
+      const n = matchingEvent(input, opportunity.id, prefs());
+      if (!n) continue;
+      assert.ok(!n.headline.includes(' + '), `joined list in: ${n.headline}`);
+    }
+  });
+
+  /* formatDistance answers "Right here" under a tenth of a mile, which the
+     "X from you" template turned into "Right here from you". */
+  it('says nearby instead of forcing a phrase into a distance slot', () => {
+    /* Standing on an organization's doorstep. The nearest fixture org is 0.2
+       miles from the default student, so searching from their own coordinates
+       is the only way to reach the branch at all — a version of this test that
+       used the default location asserted nothing. */
+    const host = ORGANIZATIONS.find((o) => o.verificationStatus === 'VERIFIED');
+    assert.ok(host, 'fixture assumption: at least one verified organization');
+    const onTop = {
+      ...input,
+      student: {
+        ...student,
+        age: 18,
+        searchLocation: { ...student.searchLocation, lat: host.location.lat, lng: host.location.lng },
+      },
+    };
+
+    const theirs = OPPORTUNITIES.filter((o) => o.organizationId === host.id);
+    let reached = 0;
+    for (const opportunity of theirs) {
+      const n = matchingEvent(onTop, opportunity.id, prefs());
+      if (!n) continue;
+      reached += 1;
+      assert.ok(!/Right here from you/.test(n.headline), n.headline);
+      assert.match(n.headline, /nearby$/);
+    }
+    assert.ok(reached > 0, 'the zero-distance branch was never exercised');
+  });
+
+  it('never doubles a space or leaves a dangling one', () => {
+    for (const opportunity of OPPORTUNITIES) {
+      const n = matchingEvent(input, opportunity.id, prefs());
+      if (!n) continue;
+      assert.ok(!/ {2}/.test(n.headline), `double space: "${n.headline}"`);
+      assert.equal(n.headline, n.headline.trim());
+    }
+  });
+});
+
 describe('message composition', () => {
   it('fits one SMS segment for every published opportunity', () => {
     for (const opportunity of OPPORTUNITIES) {

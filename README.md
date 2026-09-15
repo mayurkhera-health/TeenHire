@@ -431,6 +431,61 @@ message fits one 160-character SMS segment, and no message ever contains the
 student's name, ZIP or search coordinates. The organization never receives
 the matched audience — the event returns notifications, not a list of minors.
 
+## Notifications
+
+Composition — who may hear about what, and in what words — has existed since
+the first release and is covered by unit tests. Phase 4 added everything
+between "we decided to say this" and "somebody's phone buzzed".
+
+**No provider is chosen.** That is a product decision with a lead time: a
+sender domain, an unsubscribe path, and for SMS in the US a 10DLC
+registration that takes days to weeks. None of it blocks the logic, so the
+logic is built against a seam instead — a three-line `Provider` interface in
+`lib/server/delivery`. Adding a real sender is one file next to `log.ts`;
+nothing above the seam changes.
+
+The guard matters more than the interface. `NOTIFY_PROVIDER` has no default in
+production and the app refuses to start with the development sender there.
+`AUTH_SECRET` already works this way, and the case is sharper here: a missing
+secret fails loudly on the first request, whereas a logging sender fails
+silently forever and every screen still looks fine.
+
+**Preferences moved to the server.** They lived in `localStorage`, which was
+fine while nothing sent anything — the browser was the only thing that read
+them. A server-side sender cannot see `localStorage`, so "off means off" would
+have been violated by the first real send. They are columns on `students` now,
+written through on change and carried up at sign-in.
+
+**Who hears about a new posting** is `lib/server/audience.ts`. It returns
+notifications, never people: the moment "which students match this posting"
+becomes something an employer can ask for, the privacy envelope is gone. The
+eligibility gates run twice — once in SQL, once through `evaluateFit` — and
+anything the two disagree about is not sent. A student must never be told
+about something the app would then refuse to show them, and that property is
+asserted against the feed's own query rather than against this module's idea
+of who qualifies.
+
+**Sending** is `lib/server/notify.ts` and the worker in
+`scripts/notify-worker.ts`. Every message is written down before it is tried,
+so a process that dies mid-send loses nothing, and `dedupe_key` is unique, so
+a retried trigger cannot produce a second copy. Transient failures back off
+over about an hour and then stop; a permanent failure is not retried at all.
+
+```bash
+npm run notify:work        # one pass
+npm run notify:work -- 30  # a pass every 30 seconds
+```
+
+The worker is a script rather than a timer inside the web process. A web
+process that also sends mail sends nothing while it is being deployed, and
+sends everything twice when two instances are running.
+
+**What is not built:** the employer never gets a message saying a student
+applied — they see it on their dashboard when they next look. Digest sending
+(`summaryFor` composes them; nothing schedules them) is not wired either. Both
+are deliberate: neither blocks the loop, and both would have meant writing new
+copy rather than delivering copy that already exists.
+
 ## Acceptance measurements
 
 §47 sets UX targets. Measured against the running build at 390×844:

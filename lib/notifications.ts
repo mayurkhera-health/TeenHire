@@ -1,7 +1,13 @@
-import { EXPERIENCE_LABEL, payHeadline, timingPhrase } from './copy';
+import { EXPERIENCE_LABEL, payHeadline } from './copy';
 import { formatDistance } from './geo';
 import { matchFeed, type MatchInput, type Ranked } from './matching';
-import type { NotificationPreferences, StudentProfile } from './types';
+import type {
+  NotificationPreferences,
+  Timing,
+  Opportunity,
+  Organization,
+  StudentProfile,
+} from './types';
 
 /* Differentiator #5: opportunities come to students, rather than students
    coming to a search box.
@@ -63,21 +69,57 @@ export function matchingEvent(
   return newMatch(match, preferences.frequency === 'immediately' ? 'SMS' : 'EMAIL');
 }
 
+/* A headline is a sentence, and the label maps are not built for sentences.
+ *
+ * "New weekends job Right here from you" is what the first version produced:
+ * TIMING_LABEL is written for chips, where "Weekends" is a noun on its own,
+ * and formatDistance returns a phrase rather than a number, so the "X from
+ * you" template had nothing to slot into. Both are real messages that went out
+ * in testing. These two helpers exist so the sentence reads like one. */
+
+const TIMING_ADJECTIVE: Partial<Record<Timing, string>> = {
+  after_school: 'after-school',
+  weekends: 'weekend',
+  summer: 'summer',
+  winter_break: 'winter break',
+  spring_break: 'spring break',
+  seasonal: 'seasonal',
+};
+
+/* Only when one applies. A posting tagged for weekends, after school and the
+   summer is not a "weekend job", and stringing all three together is worse
+   than saying nothing — the detail line lists them properly anyway. */
+function timingAdjective(timing: Timing[]): string | null {
+  const [only] = timing;
+  return timing.length === 1 && only ? TIMING_ADJECTIVE[only] ?? null : null;
+}
+
+function sentenceCase(word: string): string {
+  return word.charAt(0).toUpperCase() + word.slice(1);
+}
+
+function distancePhrase(miles: number): string {
+  return miles < 0.1 ? 'nearby' : `${formatDistance(miles)} from you`;
+}
+
 export function newMatch(ranked: Ranked, channel: Channel): Notification {
   const { opportunity, organization, fit } = ranked;
-  const distance = formatDistance(fit.distance);
+  const where = distancePhrase(fit.distance);
+  const adjective = timingAdjective(opportunity.timing);
 
   const headline =
     opportunity.type === 'volunteer'
-      ? `Volunteer opportunity ${timingPhrase(opportunity.timing).toLowerCase()}`
-      : `New ${timingPhrase(opportunity.timing).toLowerCase()} ${
+      ? `${adjective ? `${sentenceCase(adjective)} volunteer` : 'Volunteer'} opportunity ${where}`
+      : `New ${adjective ? `${adjective} ` : ''}${
           opportunity.type === 'internship' ? 'internship' : 'job'
-        } ${distance} from you`;
+        } ${where}`;
 
   const parts = [
     opportunity.type === 'volunteer' ? organization.name : opportunity.title,
     `${opportunity.minimumAge}+`,
-    opportunity.type === 'volunteer' ? distance : payHeadline(opportunity.compensation),
+    opportunity.type === 'volunteer'
+      ? formatDistance(fit.distance)
+      : payHeadline(opportunity.compensation),
   ];
   if (opportunity.experience === 'none' && opportunity.type !== 'volunteer') {
     parts.push('No experience needed');
@@ -95,16 +137,20 @@ export function newMatch(ranked: Ranked, channel: Channel): Notification {
 
 /* The application-side events. A student hears about their own application;
    an organization hears about interest in their own posting. Neither ever
-   learns anything about the other that the privacy rules do not allow. */
+   learns anything about the other that the privacy rules do not allow.
+
+   Takes only the two fields it names rather than a Ranked. It never reads the
+   fit, and asking for one would force every caller to have a student profile
+   in hand just to say "this was sent". A Ranked still satisfies this. */
 export function applicationEvent(
   event: Extract<
     NotificationEvent,
     'APPLICATION_SUBMITTED' | 'APPLICATION_VIEWED' | 'EMPLOYER_INTERESTED'
   >,
-  ranked: Ranked,
+  subject: { opportunity: Pick<Opportunity, 'title'>; organization: Pick<Organization, 'name'> },
   channel: Channel = 'EMAIL',
 ): Notification {
-  const { opportunity, organization } = ranked;
+  const { opportunity, organization } = subject;
   const href = `/activity`;
 
   switch (event) {
